@@ -61,8 +61,18 @@ class MagazzinoManager {
         id: doc.id,
         ...doc.data()
       }));
+      
+      // Validazione dei dati delle categorie
+      this.categories = this.categories.filter(category => {
+        if (!category.name || !category.colorHex) {
+          console.warn('Categoria con dati mancanti ignorata:', category);
+          return false;
+        }
+        return true;
+      });
     } catch (error) {
       console.error('Errore caricamento categorie:', error);
+      this.categories = [];
     }
   }
 
@@ -78,8 +88,18 @@ class MagazzinoManager {
         id: doc.id,
         ...doc.data()
       }));
+      
+      // Validazione dei dati dei prodotti
+      this.products = this.products.filter(product => {
+        if (!product.name || !product.categoryId) {
+          console.warn('Prodotto con dati mancanti ignorato:', product);
+          return false;
+        }
+        return true;
+      });
     } catch (error) {
       console.error('Errore caricamento prodotti:', error);
+      this.products = [];
     }
   }
 
@@ -188,30 +208,40 @@ class MagazzinoManager {
     const notifDocId = `${week}_${day}`;
     
     // Array per tenere traccia degli unsubscribe
-    this.listenerUnsubscribes = [];
+    if (!this.listenerUnsubscribes) {
+      this.listenerUnsubscribes = [];
+    }
     
     // Listener per la lista dipendenti
     const listDocRef = doc(db, 'weeks', week, 'lists', day);
     const listUnsubscribe = onSnapshot(listDocRef, async (docSnapshot) => {
       console.log('Lista dipendenti cambiata:', docSnapshot.exists());
       
-      if (docSnapshot.exists()) {
+      try {
+        if (docSnapshot.exists()) {
         const newList = docSnapshot.data();
         console.log('Nuova lista:', newList);
         
         // Aggiorna sempre per riflettere in tempo reale le modifiche
-this.currentList = newList;
+        this.currentList = newList;
           await this.syncChecklistWithList();
           this.renderChecklist();
           console.log('Checklist aggiornata in tempo reale');
-      } else {
+        } else {
         // Lista eliminata
         console.log('Lista eliminata');
         this.currentList = null;
         this.currentChecklist = { items: [], extras: [] };
-        document.getElementById('checklistContainer').classList.add('hidden');
-        document.getElementById('emptyState').classList.remove('hidden');
+        const checklistContainer = document.getElementById('checklistContainer');
+        const emptyState = document.getElementById('emptyState');
+        if (checklistContainer) checklistContainer.classList.add('hidden');
+        if (emptyState) emptyState.classList.remove('hidden');
+        }
+      } catch (error) {
+        console.error('Errore nel listener della lista dipendenti:', error);
       }
+    }, (error) => {
+      console.error('Errore nel listener della lista dipendenti:', error);
     });
     this.listenerUnsubscribes.push(listUnsubscribe);
     
@@ -220,7 +250,8 @@ this.currentList = newList;
     const warehouseUnsubscribe = onSnapshot(warehouseDocRef, (docSnapshot) => {
       console.log('Checklist warehouse cambiata:', docSnapshot.exists());
       
-      if (docSnapshot.exists()) {
+      try {
+        if (docSnapshot.exists()) {
         const newChecklist = docSnapshot.data();
         console.log('Nuova checklist:', newChecklist);
         
@@ -230,7 +261,12 @@ this.currentList = newList;
           this.renderChecklist();
           console.log('UI aggiornata da modifica esterna');
         }
+        }
+      } catch (error) {
+        console.error('Errore nel listener della checklist warehouse:', error);
       }
+    }, (error) => {
+      console.error('Errore nel listener della checklist warehouse:', error);
     });
     this.listenerUnsubscribes.push(warehouseUnsubscribe);
     
@@ -239,7 +275,8 @@ this.currentList = newList;
     const notifUnsubscribe = onSnapshot(query(notificationsRef, orderBy('timestamp', 'desc')), (querySnapshot) => {
       console.log('Notifiche cambiate:', querySnapshot.size);
       
-      this.notifications = querySnapshot.docs.map(doc => ({
+      try {
+        this.notifications = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
@@ -248,9 +285,15 @@ this.currentList = newList;
       this.unreadCount = this.notifications.filter(n => !n.read).length;
       this.renderNotifications();
       console.log('Notifiche aggiornate:', this.unreadCount, 'non lette');
+      } catch (error) {
+        console.error('Errore nel listener delle notifiche:', error);
+      }
+    }, (error) => {
+      console.error('Errore nel listener delle notifiche:', error);
     });
     this.listenerUnsubscribes.push(notifUnsubscribe);
   }
+  
   computeCompletion() {
     const items = this.currentChecklist.items || [];
     const extras = this.currentChecklist.extras || [];
@@ -383,6 +426,11 @@ this.currentList = newList;
 
   renderChecklist() {
     const container = document.getElementById('checklistContainer');
+    
+    if (!container) {
+      console.error('Container checklistContainer non trovato');
+      return;
+    }
     
     if (!this.currentList) {
       container.innerHTML = '';
@@ -559,10 +607,21 @@ this.currentList = newList;
   }
 
   async updatePickedQuantity(itemId, newQuantity) {
+    if (!itemId) {
+      console.error('ID item mancante');
+      return;
+    }
+    
     const item = this.currentChecklist.items.find(i => i.id === itemId);
     if (!item) return;
     
     console.log(`Aggiornando quantità per ${itemId}: ${item.qtyPicked} -> ${newQuantity}`);
+    
+    // Validazione input
+    if (isNaN(newQuantity) || newQuantity < 0) {
+      console.error('Quantità non valida:', newQuantity);
+      return;
+    }
     
     item.qtyPicked = Math.max(0, Math.min(newQuantity, item.qtyRequested));
     item.prepared = item.qtyPicked >= item.qtyRequested;
@@ -638,9 +697,20 @@ this.currentList = newList;
   }
 
 async updateExtraPickedQuantity(extraIndex, newQuantity) {
+    if (extraIndex < 0 || !this.currentChecklist.extras || extraIndex >= this.currentChecklist.extras.length) {
+      console.error('Indice extra non valido:', extraIndex);
+      return;
+    }
+    
     if (!this.currentChecklist.extras[extraIndex]) return;
     
     console.log(`Aggiornando quantità extra ${extraIndex}: ${this.currentChecklist.extras[extraIndex].qtyPicked} -> ${newQuantity}`);
+    
+    // Validazione input
+    if (isNaN(newQuantity) || newQuantity < 0) {
+      console.error('Quantità non valida:', newQuantity);
+      return;
+    }
     
     const extra = this.currentChecklist.extras[extraIndex];
     extra.qtyPicked = Math.max(0, Math.min(newQuantity, extra.qtyRequested));
@@ -656,6 +726,11 @@ async updateExtraPickedQuantity(extraIndex, newQuantity) {
   }
 
   async toggleItemPrepared(itemId) {
+    if (!itemId) {
+      console.error('ID item mancante');
+      return;
+    }
+    
     const item = this.currentChecklist.items.find(i => i.id === itemId);
     if (!item) return;
 
@@ -666,6 +741,101 @@ async updateExtraPickedQuantity(extraIndex, newQuantity) {
 
     await this.saveChecklist();
     this.renderChecklist();
+  }
+  
+  async toggleExtraPrepared(extraIndex) {
+    if (extraIndex < 0 || !this.currentChecklist.extras || extraIndex >= this.currentChecklist.extras.length) {
+      console.error('Indice extra non valido:', extraIndex);
+      return;
+    }
+    
+    const extra = this.currentChecklist.extras[extraIndex];
+    if (!extra) return;
+
+    if (extra.qtyPicked < extra.qtyRequested) {
+      extra.qtyPicked = extra.qtyRequested;
+    }
+    extra.prepared = extra.qtyPicked >= extra.qtyRequested;
+
+    await this.saveChecklist();
+    this.renderChecklist();
+  }
+  
+  async markCategoryComplete(categoryId) {
+    if (!categoryId) {
+      console.error('ID categoria mancante');
+      return;
+    }
+    
+    try {
+      // Trova tutti gli items di questa categoria
+      const categoryItems = this.currentChecklist.items.filter(item => {
+        const product = this.products.find(p => p.id === item.id);
+        return product && product.categoryId === categoryId;
+      });
+      
+      // Segna tutti come completati
+      categoryItems.forEach(item => {
+        item.qtyPicked = item.qtyRequested;
+        item.prepared = true;
+      });
+      
+      await this.saveChecklist();
+      this.renderChecklist();
+      showToast('Categoria completata!', 'success');
+    } catch (error) {
+      console.error('Errore nel completamento categoria:', error);
+      showToast('Errore nel completamento categoria', 'error');
+    }
+  }
+  
+  async markNotificationRead(notificationId) {
+    if (!notificationId) {
+      console.error('ID notifica mancante');
+      return;
+    }
+    
+    try {
+      const week = getWeekString(this.selectedDate);
+      const day = formatDate(this.selectedDate);
+      const notifDocId = `${week}_${day}`;
+      
+      await updateDoc(doc(db, 'notifications', notifDocId, 'entries', notificationId), {
+        read: true
+      });
+      
+      showToast('Notifica segnata come letta', 'success');
+    } catch (error) {
+      console.error('Errore nel segnare notifica come letta:', error);
+      showToast('Errore nell\'aggiornamento notifica', 'error');
+    }
+  }
+  
+  async markAllNotificationsRead() {
+    try {
+      const week = getWeekString(this.selectedDate);
+      const day = formatDate(this.selectedDate);
+      const notifDocId = `${week}_${day}`;
+      
+      const unreadNotifications = this.notifications.filter(n => !n.read);
+      
+      for (const notification of unreadNotifications) {
+        await updateDoc(doc(db, 'notifications', notifDocId, 'entries', notification.id), {
+          read: true
+        });
+      }
+      
+      // Aggiorna counter
+      await setDoc(doc(db, 'notifications', notifDocId), {
+        unreadCount: 0,
+        lastUpdate: Timestamp.now()
+      }, { merge: true });
+      
+      showToast('Tutte le notifiche segnate come lette', 'success');
+    } catch (error) {
+      console.error('Errore nel segnare tutte le notifiche come lette:', error);
+      showToast('Errore nell\'aggiornamento notifiche', 'error');
+    }
   }
 
 }

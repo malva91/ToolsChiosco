@@ -72,10 +72,21 @@ class ListaManager {
         id: doc.id,
         ...doc.data()
       }));
+      
+      // Validazione dei dati delle categorie
+      this.categories = this.categories.filter(category => {
+        if (!category.name || !category.colorHex) {
+          console.warn('Categoria con dati mancanti ignorata:', category);
+          return false;
+        }
+        return true;
+      });
+      
       this.renderCategoryFilters();
     } catch (error) {
       console.error('Errore caricamento categorie:', error);
       this.showError('Errore nel caricamento delle categorie');
+      this.categories = [];
     }
   }
 
@@ -91,9 +102,19 @@ class ListaManager {
         id: doc.id,
         ...doc.data()
       }));
+      
+      // Validazione dei dati dei prodotti
+      this.products = this.products.filter(product => {
+        if (!product.name || !product.categoryId) {
+          console.warn('Prodotto con dati mancanti ignorato:', product);
+          return false;
+        }
+        return true;
+      });
     } catch (error) {
       console.error('Errore caricamento prodotti:', error);
       this.showError('Errore nel caricamento dei prodotti');
+      this.products = [];
     }
   }
 
@@ -119,6 +140,11 @@ class ListaManager {
 
   renderCategoryFilters() {
     const container = document.getElementById('categoryFilters');
+    if (!container) {
+      console.error('Container categoryFilters non trovato');
+      return;
+    }
+    
     const allBtn = document.createElement('button');
     allBtn.className = `btn btn-secondary ${!this.selectedCategory ? 'active' : ''}`;
     allBtn.textContent = 'Tutte';
@@ -132,11 +158,17 @@ class ListaManager {
     container.appendChild(allBtn);
     
     this.categories.forEach(category => {
+      if (!category.id || !category.name || !category.colorHex) {
+        console.warn('Categoria con dati mancanti saltata nei filtri:', category);
+        return;
+      }
+      
       const btn = document.createElement('button');
       btn.className = `btn btn-secondary ${this.selectedCategory === category.id ? 'active' : ''}`;
       btn.textContent = category.name;
       btn.style.backgroundColor = this.selectedCategory === category.id ? category.colorHex : '';
-            btn.style.color = this.selectedCategory === category.id ? getContrastColor(category.colorHex) : '';btn.addEventListener('click', () => {
+      btn.style.color = this.selectedCategory === category.id ? getContrastColor(category.colorHex) : '';
+      btn.addEventListener('click', () => {
         this.selectedCategory = category.id;
         this.renderProducts();
         this.updateCategoryFilters();
@@ -163,6 +195,11 @@ class ListaManager {
     const container = document.getElementById('productsList');
     const loading = document.getElementById('loadingProducts');
     
+    if (!container) {
+      console.error('Container productsList non trovato');
+      return;
+    }
+    
     loading.classList.add('hidden');
     container.classList.remove('hidden');
     
@@ -187,7 +224,10 @@ class ListaManager {
     
     Object.entries(groupedProducts).forEach(([categoryId, products]) => {
       const category = this.categories.find(c => c.id === categoryId);
-      if (!category) return;
+      if (!category) {
+        console.warn('Categoria non trovata per ID:', categoryId);
+        return;
+      }
 
       const categorySection = document.createElement('div');
       categorySection.className = 'mb-4';
@@ -243,6 +283,11 @@ class ListaManager {
   }
 
   updateQuantity(productId, newQuantity) {
+    if (!productId) {
+      console.error('ID prodotto mancante');
+      return;
+    }
+    
     if (newQuantity < 0) newQuantity = 0;
     
     const existingIndex = this.currentList.items.findIndex(item => item.id === productId);
@@ -267,11 +312,21 @@ class ListaManager {
     const nameInput = document.getElementById('extraName');
     const qtyInput = document.getElementById('extraQty');
     
+    if (!nameInput || !qtyInput) {
+      console.error('Input per prodotti extra non trovati');
+      return;
+    }
+    
     const name = nameInput.value.trim();
     const qty = parseInt(qtyInput.value) || 1;
     
-    if (!name) {
+    if (!name || name.length < 2) {
       showToast('Inserisci il nome del prodotto extra', 'error');
+      return;
+    }
+    
+    if (qty <= 0 || qty > 999) {
+      showToast('Inserisci una quantità valida (1-999)', 'error');
       return;
     }
     
@@ -290,6 +345,11 @@ class ListaManager {
 
   renderExtras() {
     const container = document.getElementById('extrasList');
+    if (!container) {
+      console.error('Container extrasList non trovato');
+      return;
+    }
+    
     container.innerHTML = '';
     
     this.currentList.extras.forEach((extra, index) => {
@@ -309,6 +369,11 @@ class ListaManager {
   }
 
   removeExtra(index) {
+    if (index < 0 || index >= this.currentList.extras.length) {
+      console.error('Indice extra non valido:', index);
+      return;
+    }
+    
     this.currentList.extras.splice(index, 1);
     this.renderExtras();
   }

@@ -40,6 +40,14 @@ export function getContrastColor(hexColor) {
 }
 
 export function showToast(message, type = 'success') {
+  // Rimuovi toast esistenti dello stesso tipo per evitare accumulo
+  const existingToasts = document.querySelectorAll(`.toast-${type}`);
+  existingToasts.forEach(toast => {
+    if (toast.parentNode) {
+      toast.parentNode.removeChild(toast);
+    }
+  });
+
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   toast.textContent = message;
@@ -71,7 +79,11 @@ export function showToast(message, type = 'success') {
   setTimeout(() => {
     toast.style.opacity = '0';
     toast.style.transform = 'translateX(100%)';
-    setTimeout(() => document.body.removeChild(toast), 300);
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, 300);
   }, 3000);
 }
 
@@ -105,22 +117,43 @@ export function createSlug(text) {
 }
 
 export async function generateUniqueId(collection, baseName, db) {
+  if (!baseName || !collection || !db) {
+    throw new Error('Parametri mancanti per generateUniqueId');
+  }
+
   const baseSlug = createSlug(baseName);
+  if (!baseSlug) {
+    throw new Error('Impossibile creare slug dal nome fornito');
+  }
+
   let slug = baseSlug;
   let counter = 1;
   
   // Importa getDoc e doc qui per evitare dipendenze circolari
   const { getDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
   
-  while (true) {
+  // Limita il numero di tentativi per evitare loop infiniti
+  const maxAttempts = 100;
+  let attempts = 0;
+  
+  while (attempts < maxAttempts) {
     const docRef = doc(db, collection, slug);
-    const docSnap = await getDoc(docRef);
     
-    if (!docSnap.exists()) {
-      return slug;
+    try {
+      const docSnap = await getDoc(docRef);
+      
+      if (!docSnap.exists()) {
+        return slug;
+      }
+    } catch (error) {
+      console.error('Errore durante la verifica dell\'ID unico:', error);
+      throw new Error('Errore nella generazione dell\'ID unico');
     }
     
     slug = `${baseSlug}-${counter}`;
     counter++;
+    attempts++;
   }
+  
+  throw new Error('Impossibile generare un ID unico dopo ' + maxAttempts + ' tentativi');
 }

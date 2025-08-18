@@ -77,11 +77,23 @@ class CatalogoManager {
         id: doc.id,
         ...doc.data()
       }));
+      
+      // Validazione dei dati delle categorie
+      this.categories = this.categories.filter(category => {
+        if (!category.name || !category.colorHex) {
+          console.warn('Categoria con dati mancanti ignorata:', category);
+          return false;
+        }
+        return true;
+      });
+      
       this.renderCategoriesList();
       this.renderProductCategorySelect();
     } catch (error) {
       console.error('Errore caricamento categorie:', error);
       this.showError('Errore nel caricamento delle categorie');
+      // Fallback con array vuoto per evitare crash
+      this.categories = [];
     }
   }
 
@@ -92,19 +104,42 @@ class CatalogoManager {
         id: doc.id,
         ...doc.data()
       }));
+      
+      // Validazione dei dati dei prodotti
+      this.products = this.products.filter(product => {
+        if (!product.name || !product.categoryId) {
+          console.warn('Prodotto con dati mancanti ignorato:', product);
+          return false;
+        }
+        return true;
+      });
+      
       this.filterProducts();
       document.getElementById('loadingProducts').classList.add('hidden');
     } catch (error) {
       console.error('Errore caricamento prodotti:', error);
       this.showError('Errore nel caricamento dei prodotti');
+      // Fallback con array vuoto per evitare crash
+      this.products = [];
+      document.getElementById('loadingProducts').classList.add('hidden');
     }
   }
 
   renderCategoriesList() {
     const container = document.getElementById('categoriesList');
+    if (!container) {
+      console.error('Container categoriesList non trovato');
+      return;
+    }
+    
     container.innerHTML = '';
 
     this.categories.forEach(category => {
+      if (!category.id || !category.name || !category.colorHex) {
+        console.warn('Categoria con dati mancanti saltata:', category);
+        return;
+      }
+      
       const categoryDiv = document.createElement('div');
       categoryDiv.className = 'category-item';
       categoryDiv.style.background = `linear-gradient(135deg, ${category.colorHex}10 0%, transparent 100%)`;
@@ -139,9 +174,19 @@ class CatalogoManager {
 
   renderProductCategorySelect() {
     const select = document.getElementById('productCategory');
+    if (!select) {
+      console.error('Select productCategory non trovato');
+      return;
+    }
+    
     select.innerHTML = '<option value="">Seleziona categoria</option>';
 
     this.categories.forEach(category => {
+      if (!category.id || !category.name) {
+        console.warn('Categoria con dati mancanti saltata nel select:', category);
+        return;
+      }
+      
       const option = document.createElement('option');
       option.value = category.id;
       option.textContent = category.name;
@@ -151,6 +196,11 @@ class CatalogoManager {
 
   renderCategoryFilters() {
     const container = document.getElementById('categoryFilters');
+    if (!container) {
+      console.error('Container categoryFilters non trovato');
+      return;
+    }
+    
     const allBtn = document.createElement('button');
     allBtn.className = `btn btn-secondary ${!this.selectedCategory ? 'active' : ''}`;
     allBtn.textContent = 'Tutti';
@@ -164,6 +214,11 @@ class CatalogoManager {
     container.appendChild(allBtn);
     
     this.categories.forEach(category => {
+      if (!category.id || !category.name || !category.colorHex) {
+        console.warn('Categoria con dati mancanti saltata nei filtri:', category);
+        return;
+      }
+      
       const btn = document.createElement('button');
       btn.className = `btn btn-secondary ${this.selectedCategory === category.id ? 'active' : ''}`;
       btn.textContent = category.name;
@@ -208,6 +263,11 @@ class CatalogoManager {
 
   renderProducts() {
     const container = document.getElementById('productsList');
+    if (!container) {
+      console.error('Container productsList non trovato');
+      return;
+    }
+    
     container.innerHTML = '';
 
     if (this.filteredProducts.length === 0) {
@@ -232,7 +292,10 @@ class CatalogoManager {
 
     Object.entries(groupedProducts).forEach(([categoryId, products]) => {
       const category = this.categories.find(c => c.id === categoryId);
-      if (!category) return;
+      if (!category) {
+        console.warn('Categoria non trovata per ID:', categoryId);
+        return;
+      }
 
       const categorySection = document.createElement('div');
       categorySection.className = 'category-section';
@@ -314,8 +377,13 @@ class CatalogoManager {
     const name = document.getElementById('categoryName').value.trim();
     const colorHex = document.getElementById('categoryColor').value;
 
-    if (!name) {
+    if (!name || name.length < 2) {
       showToast('Inserisci il nome della categoria', 'error');
+      return;
+    }
+    
+    if (!colorHex || !/^#[0-9A-F]{6}$/i.test(colorHex)) {
+      showToast('Seleziona un colore valido', 'error');
       return;
     }
 
@@ -346,8 +414,13 @@ class CatalogoManager {
     const name = document.getElementById('categoryName').value.trim();
     const colorHex = document.getElementById('categoryColor').value;
 
-    if (!name) {
+    if (!name || name.length < 2) {
       showToast('Inserisci il nome della categoria', 'error');
+      return;
+    }
+    
+    if (!colorHex || !/^#[0-9A-F]{6}$/i.test(colorHex)) {
+      showToast('Seleziona un colore valido', 'error');
       return;
     }
 
@@ -429,8 +502,20 @@ class CatalogoManager {
     const important = document.getElementById('productImportant').checked;
     const active = document.getElementById('productActive').checked;
 
-    if (!name || !categoryId) {
+    if (!name || name.length < 2) {
+      showToast('Inserisci un nome prodotto valido (almeno 2 caratteri)', 'error');
+      return;
+    }
+    
+    if (!categoryId) {
       showToast('Inserisci nome prodotto e seleziona categoria', 'error');
+      return;
+    }
+    
+    // Verifica che la categoria esista
+    const categoryExists = this.categories.find(c => c.id === categoryId);
+    if (!categoryExists) {
+      showToast('La categoria selezionata non è valida', 'error');
       return;
     }
 
@@ -462,8 +547,20 @@ class CatalogoManager {
     const important = document.getElementById('productImportant').checked;
     const active = document.getElementById('productActive').checked;
 
-    if (!name || !categoryId) {
+    if (!name || name.length < 2) {
+      showToast('Inserisci un nome prodotto valido (almeno 2 caratteri)', 'error');
+      return;
+    }
+    
+    if (!categoryId) {
       showToast('Inserisci nome prodotto e seleziona categoria', 'error');
+      return;
+    }
+    
+    // Verifica che la categoria esista
+    const categoryExists = this.categories.find(c => c.id === categoryId);
+    if (!categoryExists) {
+      showToast('La categoria selezionata non è valida', 'error');
       return;
     }
 

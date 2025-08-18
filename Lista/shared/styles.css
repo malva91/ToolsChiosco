@@ -106,6 +106,20 @@ body {
   min-height: 48px;
   min-width: 120px;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn:disabled:hover {
+  transform: none !important;
 }
 
 .btn-primary {
@@ -189,12 +203,18 @@ body {
   color: var(--text-primary);
   font-size: 1rem;
   min-height: 48px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .form-input:focus, .form-select:focus, .form-textarea:focus {
   outline: none;
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-input:invalid, .form-select:invalid, .form-textarea:invalid {
+  border-color: var(--accent-error);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
 .form-textarea {
@@ -220,6 +240,8 @@ body {
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .product-card:hover {
@@ -238,6 +260,9 @@ body {
   font-size: 1.1rem;
   margin-bottom: 0.5rem;
   color: var(--text-primary);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .product-category {
@@ -481,6 +506,12 @@ body {
 .qty-btn:disabled {
   background: var(--border-color);
   cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.qty-btn:disabled:hover {
+  background: var(--border-color);
+  transform: none;
 }
 
 .qty-input {
@@ -491,6 +522,17 @@ body {
   border: 1px solid var(--border-color);
   border-radius: 6px;
   color: var(--text-primary);
+  transition: border-color 0.2s ease;
+}
+
+.qty-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.qty-input:invalid {
+  border-color: var(--accent-error);
 }
 
 .notification-panel {
@@ -532,6 +574,8 @@ body {
   background: var(--bg-tertiary);
   border-radius: 4px;
   animation: slideIn 0.3s ease;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 @keyframes slideIn {
@@ -559,6 +603,7 @@ body {
 
 .notification-item.read {
   opacity: 0.6;
+  background: var(--bg-primary);
 }
 
 .loading {
@@ -581,6 +626,8 @@ body {
   padding: 1rem;
   margin: 1rem 0;
   color: var(--accent-error);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .success {
@@ -590,6 +637,8 @@ body {
   padding: 1rem;
   margin: 1rem 0;
   color: var(--accent-success);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .grid {
@@ -645,6 +694,26 @@ body {
   display: none;
 }
 
+.text-success {
+  color: var(--accent-success) !important;
+}
+
+.text-error {
+  color: var(--accent-error) !important;
+}
+
+.text-warning {
+  color: var(--accent-warning) !important;
+}
+
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+.text-secondary {
+  color: var(--text-secondary) !important;
+}
+
 .fade-in {
   animation: fadeIn 0.3s ease;
 }
@@ -652,4 +721,65 @@ body {
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* Miglioramenti per accessibilità */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus visibile per accessibilità */
+.btn:focus-visible,
+.form-input:focus-visible,
+.form-select:focus-visible,
+.form-textarea:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Miglioramenti per dispositivi touch */
+@media (hover: none) and (pointer: coarse) {
+  .btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .btn-icon {
+    width: 44px;
+    height: 44px;
+  }
+  
+  .qty-btn {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* Prevenzione overflow su schermi piccoli */
+@media (max-width: 480px) {
+  .container {
+    padding: 0.5rem;
+  }
+  
+  .product-card {
+    padding: 1rem;
+  }
+  
+  .btn {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+  }
+  
+  .flex {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .quantity-controls {
+    justify-content: center;
+  }
 }
