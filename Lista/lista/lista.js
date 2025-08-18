@@ -4,6 +4,7 @@ import {
   query, where, orderBy, Timestamp 
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { formatDate, getWeekString, getDayName, showToast, debounce , getContrastColor } from '../shared/utils.js';
+import { safeQuerySelector, safeAddEventListener, validateInput } from '../shared/utils.js';
 
 class ListaManager {
   constructor() {
@@ -28,13 +29,18 @@ class ListaManager {
   }
 
   setupDateSelector() {
-    const dateSelector = document.getElementById('dateSelector');
-    const currentDateEl = document.getElementById('currentDate');
+    const dateSelector = safeQuerySelector('#dateSelector');
+    const currentDateEl = safeQuerySelector('#currentDate');
+    
+    if (!dateSelector || !currentDateEl) {
+      console.error('Elementi date selector non trovati');
+      return;
+    }
     
     dateSelector.value = formatDate(this.selectedDate);
     currentDateEl.textContent = `${getDayName(this.selectedDate)} ${formatDate(this.selectedDate)}`;
     
-    dateSelector.addEventListener('change', (e) => {
+    safeAddEventListener(dateSelector, 'change', (e) => {
       this.selectedDate = new Date(e.target.value);
       currentDateEl.textContent = `${getDayName(this.selectedDate)} ${formatDate(this.selectedDate)}`;
       this.loadCurrentList();
@@ -42,27 +48,41 @@ class ListaManager {
   }
 
   setupEventListeners() {
-    const searchInput = document.getElementById('searchInput');
-    searchInput.addEventListener('input', debounce((e) => {
-      this.searchTerm = e.target.value.toLowerCase();
-      this.renderProducts();
-    }, 300));
+    const searchInput = safeQuerySelector('#searchInput');
+    if (searchInput) {
+      safeAddEventListener(searchInput, 'input', debounce((e) => {
+        this.searchTerm = e.target.value.toLowerCase();
+        this.renderProducts();
+      }, 300));
+    }
 
-    document.getElementById('addExtraBtn').addEventListener('click', () => {
-      this.addExtra();
-    });
+    const addExtraBtn = safeQuerySelector('#addExtraBtn');
+    if (addExtraBtn) {
+      safeAddEventListener(addExtraBtn, 'click', () => {
+        this.addExtra();
+      });
+    }
 
-    document.getElementById('extraName').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') this.addExtra();
-    });
+    const extraName = safeQuerySelector('#extraName');
+    if (extraName) {
+      safeAddEventListener(extraName, 'keypress', (e) => {
+        if (e.key === 'Enter') this.addExtra();
+      });
+    }
 
-    document.getElementById('saveDraftBtn').addEventListener('click', () => {
-      this.saveList(false);
-    });
+    const saveDraftBtn = safeQuerySelector('#saveDraftBtn');
+    if (saveDraftBtn) {
+      safeAddEventListener(saveDraftBtn, 'click', () => {
+        this.saveList(false);
+      });
+    }
 
-    document.getElementById('submitBtn').addEventListener('click', () => {
-      this.saveList(true);
-    });
+    const submitBtn = safeQuerySelector('#submitBtn');
+    if (submitBtn) {
+      safeAddEventListener(submitBtn, 'click', () => {
+        this.saveList(true);
+      });
+    }
   }
 
   async loadCategories() {
@@ -283,12 +303,19 @@ class ListaManager {
   }
 
   updateQuantity(productId, newQuantity) {
+    // Validazione parametri
     if (!productId) {
       console.error('ID prodotto mancante');
       return;
     }
     
-    if (newQuantity < 0) newQuantity = 0;
+    const qtyValidation = validateInput(newQuantity, 'number', { min: 0, max: 999 });
+    if (!qtyValidation.valid) {
+      showToast('Quantità non valida', 'error');
+      return;
+    }
+    
+    newQuantity = qtyValidation.value;
     
     const existingIndex = this.currentList.items.findIndex(item => item.id === productId);
     
@@ -309,26 +336,29 @@ class ListaManager {
   }
 
   addExtra() {
-    const nameInput = document.getElementById('extraName');
-    const qtyInput = document.getElementById('extraQty');
+    const nameInput = safeQuerySelector('#extraName');
+    const qtyInput = safeQuerySelector('#extraQty');
     
     if (!nameInput || !qtyInput) {
       console.error('Input per prodotti extra non trovati');
       return;
     }
     
-    const name = nameInput.value.trim();
-    const qty = parseInt(qtyInput.value) || 1;
-    
-    if (!name || name.length < 2) {
-      showToast('Inserisci il nome del prodotto extra', 'error');
+    // Validazione input con utility
+    const nameValidation = validateInput(nameInput.value, 'text', { min: 2, max: 100, required: true });
+    if (!nameValidation.valid) {
+      showToast(nameValidation.error, 'error');
       return;
     }
     
-    if (qty <= 0 || qty > 999) {
-      showToast('Inserisci una quantità valida (1-999)', 'error');
+    const qtyValidation = validateInput(qtyInput.value, 'number', { min: 1, max: 999, required: true });
+    if (!qtyValidation.valid) {
+      showToast(qtyValidation.error, 'error');
       return;
     }
+    
+    const name = nameValidation.value;
+    const qty = qtyValidation.value;
     
     const existingIndex = this.currentList.extras.findIndex(extra => extra.name === name);
     
@@ -344,7 +374,7 @@ class ListaManager {
   }
 
   renderExtras() {
-    const container = document.getElementById('extrasList');
+    const container = safeQuerySelector('#extrasList');
     if (!container) {
       console.error('Container extrasList non trovato');
       return;
@@ -538,10 +568,14 @@ class ListaManager {
   }
 
   showError(message) {
-    const errorEl = document.getElementById('errorMessage');
-    errorEl.textContent = message;
-    errorEl.classList.remove('hidden');
-    setTimeout(() => errorEl.classList.add('hidden'), 5000);
+    const errorEl = safeQuerySelector('#errorMessage');
+    if (errorEl) {
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+      setTimeout(() => errorEl.classList.add('hidden'), 5000);
+    }
+    // Fallback con toast se elemento non trovato
+    showToast(message, 'error');
   }
 }
 

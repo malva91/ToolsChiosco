@@ -40,59 +40,120 @@ export function getContrastColor(hexColor) {
 }
 
 export function showToast(message, type = 'success') {
-  // Rimuovi toast esistenti dello stesso tipo per evitare accumulo
-  const existingToasts = document.querySelectorAll(`.toast-${type}`);
+  // Rimuovi toast esistenti per evitare accumulo
+  const existingToasts = document.querySelectorAll('.toast');
   existingToasts.forEach(toast => {
-    if (toast.parentNode) {
-      toast.parentNode.removeChild(toast);
+    try {
+      if (toast && toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    } catch (error) {
+      console.warn('Errore rimozione toast:', error);
     }
   });
 
+  // Validazione parametri
+  if (!message || typeof message !== 'string') {
+    console.warn('Messaggio toast non valido:', message);
+    return;
+  }
+
   const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
+  toast.className = `toast toast-${type || 'info'}`;
   toast.textContent = message;
   
   toast.style.cssText = `
     position: fixed;
-    top: 20px;
-    right: 20px;
+    top: env(safe-area-inset-top, 20px);
+    right: env(safe-area-inset-right, 20px);
     padding: 1rem 1.5rem;
     border-radius: 6px;
     color: white;
     font-weight: 500;
-    z-index: 1000;
+    z-index: 9999;
     opacity: 0;
     transform: translateX(100%);
     transition: all 0.3s ease;
+    max-width: calc(100vw - 40px);
+    word-wrap: break-word;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     ${type === 'success' ? 'background: #22c55e;' : ''}
     ${type === 'error' ? 'background: #ef4444;' : ''}
     ${type === 'warning' ? 'background: #f59e0b;' : ''}
+    ${type === 'info' ? 'background: #3b82f6;' : ''}
   `;
   
-  document.body.appendChild(toast);
+  // Mobile-specific adjustments
+  if (window.innerWidth <= 480) {
+    toast.style.cssText += `
+      top: env(safe-area-inset-top, 10px);
+      right: env(safe-area-inset-right, 10px);
+      left: env(safe-area-inset-left, 10px);
+      right: env(safe-area-inset-right, 10px);
+      transform: translateY(-100%);
+      max-width: none;
+    `;
+  }
+  
+  try {
+    document.body.appendChild(toast);
+  } catch (error) {
+    console.error('Errore aggiunta toast al DOM:', error);
+    return;
+  }
   
   setTimeout(() => {
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateX(0)';
+    if (toast && toast.parentNode) {
+      toast.style.opacity = '1';
+      if (window.innerWidth <= 480) {
+        toast.style.transform = 'translateY(0)';
+      } else {
+        toast.style.transform = 'translateX(0)';
+      }
+    }
   }, 100);
   
   setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateX(100%)';
+    if (toast && toast.parentNode) {
+      toast.style.opacity = '0';
+      if (window.innerWidth <= 480) {
+        toast.style.transform = 'translateY(-100%)';
+      } else {
+        toast.style.transform = 'translateX(100%)';
+      }
+    }
     setTimeout(() => {
-      if (toast.parentNode) {
-        toast.parentNode.removeChild(toast);
+      try {
+        if (toast && toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      } catch (error) {
+        console.warn('Errore rimozione toast:', error);
       }
     }, 300);
   }, 3000);
 }
 
 export function debounce(func, wait) {
+  if (typeof func !== 'function') {
+    console.error('debounce: primo parametro deve essere una funzione');
+    return () => {};
+  }
+  
+  if (typeof wait !== 'number' || wait < 0) {
+    console.warn('debounce: wait deve essere un numero positivo, usando 300ms');
+    wait = 300;
+  }
+  
   let timeout;
   return function executedFunction(...args) {
     const later = () => {
       clearTimeout(timeout);
-      func(...args);
+      try {
+        func.apply(this, args);
+      } catch (error) {
+        console.error('Errore in funzione debounced:', error);
+      }
     };
     clearTimeout(timeout);
     timeout = setTimeout(later, wait);
@@ -118,11 +179,13 @@ export function createSlug(text) {
 
 export async function generateUniqueId(collection, baseName, db) {
   if (!baseName || !collection || !db) {
+    console.error('generateUniqueId: parametri mancanti', { collection, baseName, db: !!db });
     throw new Error('Parametri mancanti per generateUniqueId');
   }
 
   const baseSlug = createSlug(baseName);
   if (!baseSlug) {
+    console.error('generateUniqueId: impossibile creare slug da', baseName);
     throw new Error('Impossibile creare slug dal nome fornito');
   }
 
@@ -130,14 +193,28 @@ export async function generateUniqueId(collection, baseName, db) {
   let counter = 1;
   
   // Importa getDoc e doc qui per evitare dipendenze circolari
-  const { getDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+  let getDoc, doc;
+  try {
+    const firestore = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    getDoc = firestore.getDoc;
+    doc = firestore.doc;
+  } catch (error) {
+    console.error('Errore importazione Firestore:', error);
+    throw new Error('Errore nel caricamento delle dipendenze Firestore');
+  }
   
   // Limita il numero di tentativi per evitare loop infiniti
   const maxAttempts = 100;
   let attempts = 0;
   
   while (attempts < maxAttempts) {
-    const docRef = doc(db, collection, slug);
+    let docRef;
+    try {
+      docRef = doc(db, collection, slug);
+    } catch (error) {
+      console.error('Errore creazione riferimento documento:', error);
+      throw new Error('Errore nella creazione del riferimento documento');
+    }
     
     try {
       const docSnap = await getDoc(docRef);
@@ -146,8 +223,13 @@ export async function generateUniqueId(collection, baseName, db) {
         return slug;
       }
     } catch (error) {
-      console.error('Errore durante la verifica dell\'ID unico:', error);
-      throw new Error('Errore nella generazione dell\'ID unico');
+      console.error('Errore verifica esistenza documento:', error, { collection, slug });
+      // Se è un errore di rete, riprova con un delay
+      if (error.code === 'unavailable' || error.code === 'deadline-exceeded') {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;
+      }
+      throw new Error(`Errore nella verifica dell'ID unico: ${error.message}`);
     }
     
     slug = `${baseSlug}-${counter}`;
@@ -155,5 +237,136 @@ export async function generateUniqueId(collection, baseName, db) {
     attempts++;
   }
   
+  console.error('generateUniqueId: raggiunto limite tentativi', { collection, baseName, maxAttempts });
   throw new Error('Impossibile generare un ID unico dopo ' + maxAttempts + ' tentativi');
+}
+
+// Utility per gestire errori DOM in modo sicuro
+export function safeQuerySelector(selector, context = document) {
+  try {
+    if (!selector || typeof selector !== 'string') {
+      console.warn('safeQuerySelector: selector non valido', selector);
+      return null;
+    }
+    return context.querySelector(selector);
+  } catch (error) {
+    console.error('Errore querySelector:', error, selector);
+    return null;
+  }
+}
+
+export function safeQuerySelectorAll(selector, context = document) {
+  try {
+    if (!selector || typeof selector !== 'string') {
+      console.warn('safeQuerySelectorAll: selector non valido', selector);
+      return [];
+    }
+    return Array.from(context.querySelectorAll(selector));
+  } catch (error) {
+    console.error('Errore querySelectorAll:', error, selector);
+    return [];
+  }
+}
+
+// Utility per gestire eventi in modo sicuro
+export function safeAddEventListener(element, event, handler, options = {}) {
+  if (!element || typeof element.addEventListener !== 'function') {
+    console.warn('safeAddEventListener: elemento non valido', element);
+    return () => {};
+  }
+  
+  if (!event || typeof event !== 'string') {
+    console.warn('safeAddEventListener: evento non valido', event);
+    return () => {};
+  }
+  
+  if (typeof handler !== 'function') {
+    console.warn('safeAddEventListener: handler non valido', handler);
+    return () => {};
+  }
+  
+  try {
+    element.addEventListener(event, handler, options);
+    return () => {
+      try {
+        element.removeEventListener(event, handler, options);
+      } catch (error) {
+        console.warn('Errore rimozione event listener:', error);
+      }
+    };
+  } catch (error) {
+    console.error('Errore aggiunta event listener:', error);
+    return () => {};
+  }
+}
+
+// Utility per validazione input
+export function validateInput(value, type = 'text', options = {}) {
+  const { min = 0, max = Infinity, required = false, pattern = null } = options;
+  
+  if (required && (!value || value.toString().trim() === '')) {
+    return { valid: false, error: 'Campo obbligatorio' };
+  }
+  
+  if (!value && !required) {
+    return { valid: true, value: '' };
+  }
+  
+  switch (type) {
+    case 'number':
+      const num = parseFloat(value);
+      if (isNaN(num)) {
+        return { valid: false, error: 'Deve essere un numero' };
+      }
+      if (num < min) {
+        return { valid: false, error: `Deve essere almeno ${min}` };
+      }
+      if (num > max) {
+        return { valid: false, error: `Deve essere al massimo ${max}` };
+      }
+      return { valid: true, value: num };
+      
+    case 'text':
+      const text = value.toString().trim();
+      if (text.length < min) {
+        return { valid: false, error: `Deve essere almeno ${min} caratteri` };
+      }
+      if (text.length > max) {
+        return { valid: false, error: `Deve essere al massimo ${max} caratteri` };
+      }
+      if (pattern && !pattern.test(text)) {
+        return { valid: false, error: 'Formato non valido' };
+      }
+      return { valid: true, value: text };
+      
+    case 'email':
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailPattern.test(value)) {
+        return { valid: false, error: 'Email non valida' };
+      }
+      return { valid: true, value: value.toString().trim() };
+      
+    default:
+      return { valid: true, value: value };
+  }
+}
+
+// Utility per gestire il viewport mobile
+export function isMobile() {
+  return window.innerWidth <= 768;
+}
+
+export function isSmallMobile() {
+  return window.innerWidth <= 480;
+}
+
+// Utility per gestire safe area su dispositivi con notch
+export function getSafeAreaInsets() {
+  const style = getComputedStyle(document.documentElement);
+  return {
+    top: parseInt(style.getPropertyValue('env(safe-area-inset-top)')) || 0,
+    right: parseInt(style.getPropertyValue('env(safe-area-inset-right)')) || 0,
+    bottom: parseInt(style.getPropertyValue('env(safe-area-inset-bottom)')) || 0,
+    left: parseInt(style.getPropertyValue('env(safe-area-inset-left)')) || 0
+  };
 }
