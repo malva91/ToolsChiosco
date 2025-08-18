@@ -4,7 +4,7 @@ import {
   query, where, orderBy, Timestamp 
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { formatDate, getWeekString, getDayName, showToast, debounce , getContrastColor } from '../shared/utils.js';
-import { safeQuerySelector, safeAddEventListener, validateInput } from '../shared/utils.js';
+import { safeQuerySelector, safeAddEventListener, validateInput, initMobileUtils } from '../shared/utils.js';
 
 class ListaManager {
   constructor() {
@@ -19,6 +19,9 @@ class ListaManager {
   }
 
   async init() {
+    // Initialize mobile utilities
+    initMobileUtils();
+    
     this.setupDateSelector();
     this.setupEventListeners();
     await this.loadCategories();
@@ -306,6 +309,7 @@ class ListaManager {
     // Validazione parametri
     if (!productId) {
       console.error('ID prodotto mancante');
+      showToast('Errore: ID prodotto mancante', 'error');
       return;
     }
     
@@ -332,7 +336,16 @@ class ListaManager {
       }
     }
     
+    // Update UI immediately for better UX
     this.renderProducts();
+    
+    // Auto-save draft after quantity change (debounced)
+    if (!this.autoSaveTimeout) {
+      this.autoSaveTimeout = setTimeout(() => {
+        this.saveList(false);
+        this.autoSaveTimeout = null;
+      }, 2000);
+    }
   }
 
   addExtra() {
@@ -401,6 +414,7 @@ class ListaManager {
   removeExtra(index) {
     if (index < 0 || index >= this.currentList.extras.length) {
       console.error('Indice extra non valido:', index);
+      showToast('Errore: indice non valido', 'error');
       return;
     }
     
@@ -576,8 +590,34 @@ class ListaManager {
     }
     // Fallback con toast se elemento non trovato
     showToast(message, 'error');
+    
+    // Log error for debugging
+    console.error('Lista Error:', message);
+  }
+  
+  // Cleanup method
+  destroy() {
+    if (this.autoSaveTimeout) {
+      clearTimeout(this.autoSaveTimeout);
+    }
   }
 }
+
+// Handle page unload
+window.addEventListener('beforeunload', () => {
+  if (window.listaManager) {
+    window.listaManager.destroy();
+  }
+});
+
+// Handle orientation changes
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => {
+    if (window.listaManager) {
+      window.listaManager.renderProducts();
+    }
+  }, 100);
+});
 
 // Inizializza l'applicazione
 window.listaManager = new ListaManager();

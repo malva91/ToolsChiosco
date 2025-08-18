@@ -62,10 +62,15 @@ export function showToast(message, type = 'success') {
   toast.className = `toast toast-${type || 'info'}`;
   toast.textContent = message;
   
+  // Get safe area insets
+  const safeAreaTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-top')) || 0;
+  const safeAreaRight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-right')) || 0;
+  const safeAreaLeft = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-left')) || 0;
+  
   toast.style.cssText = `
     position: fixed;
-    top: env(safe-area-inset-top, 20px);
-    right: env(safe-area-inset-right, 20px);
+    top: calc(20px + ${safeAreaTop}px);
+    right: calc(20px + ${safeAreaRight}px);
     padding: 1rem 1.5rem;
     border-radius: 6px;
     color: white;
@@ -74,9 +79,13 @@ export function showToast(message, type = 'success') {
     opacity: 0;
     transform: translateX(100%);
     transition: all 0.3s ease;
-    max-width: calc(100vw - 40px);
+    max-width: calc(100vw - 40px - ${safeAreaLeft}px - ${safeAreaRight}px);
     word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    /* Prevent content overflow */
+    overflow: hidden;
     ${type === 'success' ? 'background: #22c55e;' : ''}
     ${type === 'error' ? 'background: #ef4444;' : ''}
     ${type === 'warning' ? 'background: #f59e0b;' : ''}
@@ -86,12 +95,13 @@ export function showToast(message, type = 'success') {
   // Mobile-specific adjustments
   if (window.innerWidth <= 480) {
     toast.style.cssText += `
-      top: env(safe-area-inset-top, 10px);
-      right: env(safe-area-inset-right, 10px);
-      left: env(safe-area-inset-left, 10px);
-      right: env(safe-area-inset-right, 10px);
+      top: calc(10px + ${safeAreaTop}px);
+      right: calc(10px + ${safeAreaRight}px);
+      left: calc(10px + ${safeAreaLeft}px);
       transform: translateY(-100%);
       max-width: none;
+      text-align: center;
+      font-size: 0.9rem;
     `;
   }
   
@@ -360,13 +370,121 @@ export function isSmallMobile() {
   return window.innerWidth <= 480;
 }
 
+export function isExtraSmallMobile() {
+  return window.innerWidth <= 320;
+}
+
+export function isLandscape() {
+  return window.innerWidth > window.innerHeight;
+}
+
+export function getViewportHeight() {
+  // Use dynamic viewport height if available
+  return window.visualViewport ? window.visualViewport.height : window.innerHeight;
+}
+
+export function getViewportWidth() {
+  return window.visualViewport ? window.visualViewport.width : window.innerWidth;
+}
+
 // Utility per gestire safe area su dispositivi con notch
 export function getSafeAreaInsets() {
   const style = getComputedStyle(document.documentElement);
   return {
-    top: parseInt(style.getPropertyValue('env(safe-area-inset-top)')) || 0,
-    right: parseInt(style.getPropertyValue('env(safe-area-inset-right)')) || 0,
-    bottom: parseInt(style.getPropertyValue('env(safe-area-inset-bottom)')) || 0,
-    left: parseInt(style.getPropertyValue('env(safe-area-inset-left)')) || 0
+    top: parseInt(style.getPropertyValue('--safe-area-top')) || 0,
+    right: parseInt(style.getPropertyValue('--safe-area-right')) || 0,
+    bottom: parseInt(style.getPropertyValue('--safe-area-bottom')) || 0,
+    left: parseInt(style.getPropertyValue('--safe-area-left')) || 0
   };
+}
+
+// Utility per gestire l'orientamento del dispositivo
+export function handleOrientationChange() {
+  // Force a small delay to allow for orientation change to complete
+  setTimeout(() => {
+    // Update viewport height custom property
+    const vh = getViewportHeight() * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+    
+    // Trigger a resize event to recalculate layouts
+    window.dispatchEvent(new Event('resize'));
+  }, 100);
+}
+
+// Utility per prevenire il bounce scroll su iOS
+export function preventBounceScroll() {
+  document.addEventListener('touchmove', function(e) {
+    const target = e.target;
+    const scrollableParent = findScrollableParent(target);
+    
+    if (!scrollableParent) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+}
+
+function findScrollableParent(element) {
+  if (!element || element === document.body) {
+    return null;
+  }
+  
+  const style = getComputedStyle(element);
+  const overflowY = style.overflowY;
+  
+  if (overflowY === 'auto' || overflowY === 'scroll') {
+    return element;
+  }
+  
+  return findScrollableParent(element.parentElement);
+}
+
+// Utility per gestire il keyboard su mobile
+export function handleMobileKeyboard() {
+  if (!window.visualViewport) return;
+  
+  const viewport = window.visualViewport;
+  
+  function updateViewport() {
+    const vh = viewport.height * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+  }
+  
+  viewport.addEventListener('resize', updateViewport);
+  updateViewport();
+}
+
+// Inizializza le utility mobile
+export function initMobileUtils() {
+  // Set initial viewport height
+  const vh = getViewportHeight() * 0.01;
+  document.documentElement.style.setProperty('--vh', `${vh}px`);
+  
+  // Handle orientation changes
+  window.addEventListener('orientationchange', handleOrientationChange);
+  window.addEventListener('resize', handleOrientationChange);
+  
+  // Handle mobile keyboard
+  handleMobileKeyboard();
+  
+  // Prevent bounce scroll on iOS
+  if (navigator.userAgent.includes('iPhone') || navigator.userAgent.includes('iPad')) {
+    preventBounceScroll();
+  }
+  
+  // Update safe area insets
+  updateSafeAreaInsets();
+}
+
+function updateSafeAreaInsets() {
+  // Update CSS custom properties with safe area insets
+  const style = getComputedStyle(document.documentElement);
+  const top = style.getPropertyValue('env(safe-area-inset-top)') || '0px';
+  const right = style.getPropertyValue('env(safe-area-inset-right)') || '0px';
+  const bottom = style.getPropertyValue('env(safe-area-inset-bottom)') || '0px';
+  const left = style.getPropertyValue('env(safe-area-inset-left)') || '0px';
+  
+  document.documentElement.style.setProperty('--safe-area-top', top);
+  document.documentElement.style.setProperty('--safe-area-right', right);
+  document.documentElement.style.setProperty('--safe-area-bottom', bottom);
+  document.documentElement.style.setProperty('--safe-area-left', left);
 }

@@ -10,6 +10,7 @@ class LibroNeroManager {
         this.clientsData = new Map();
         this.clientsUnsubscribe = null;
         this.transactionsUnsubscribe = null;
+        this.autoSaveTimeout = null;
         
         if (!this.currentUser) {
             window.location.href = 'index.html';
@@ -25,10 +26,38 @@ class LibroNeroManager {
     }
 
     async init() {
+        // Initialize mobile utilities
+        this.initMobileUtils();
+        
         this.setupUI();
         this.setupEventListeners();
         this.mobileMenuManager = new MobileMenuManager();
         await this.loadClients();
+    }
+    
+    initMobileUtils() {
+        // Set initial viewport height
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+        
+        // Handle viewport changes
+        this.handleViewportChange();
+        
+        // Prevent bounce scroll on iOS
+        if (navigator.userAgent.includes('iPhone') || navigator.userAgent.includes('iPad')) {
+            this.preventBounceScroll();
+        }
+    }
+    
+    preventBounceScroll() {
+        document.addEventListener('touchmove', function(e) {
+            const target = e.target;
+            const scrollableParent = target.closest('.clients-list, .transactions-list');
+            
+            if (!scrollableParent) {
+                e.preventDefault();
+            }
+        }, { passive: false });
     }
 
     setupUI() {
@@ -224,6 +253,13 @@ class LibroNeroManager {
             nameInput.focus();
             return;
         }
+        
+        // Check for special characters that might cause issues
+        if (!/^[a-zA-Z0-9\s\-_àáâãäåèéêëìíîïòóôõöùúûüñç]+$/i.test(name)) {
+            ErrorHandler.showError('Il nome contiene caratteri non validi');
+            nameInput.focus();
+            return;
+        }
 
         this.showLoading(true);
 
@@ -255,7 +291,13 @@ class LibroNeroManager {
             
         } catch (error) {
             console.error('Error adding client:', error);
-            ErrorHandler.showError('Errore nell\'aggiunta del cliente');
+            if (error.code === 'permission-denied') {
+                ErrorHandler.showError('Permessi insufficienti per aggiungere il cliente');
+            } else if (error.code === 'unavailable') {
+                ErrorHandler.showError('Servizio temporaneamente non disponibile');
+            } else {
+                ErrorHandler.showError('Errore nell\'aggiunta del cliente');
+            }
         } finally {
             this.showLoading(false);
         }
@@ -386,6 +428,13 @@ class LibroNeroManager {
             amountInput.focus();
             return;
         }
+        
+        // Validate description length
+        if (description && description.length > 100) {
+            ErrorHandler.showError('La descrizione non può superare i 100 caratteri');
+            descriptionInput.focus();
+            return;
+        }
 
         await this.saveTransaction(amount, description);
     }
@@ -419,7 +468,13 @@ class LibroNeroManager {
             
         } catch (error) {
             console.error('Error adding transaction:', error);
-            ErrorHandler.showError('Errore nell\'aggiunta della transazione');
+            if (error.code === 'permission-denied') {
+                ErrorHandler.showError('Permessi insufficienti per aggiungere la transazione');
+            } else if (error.code === 'unavailable') {
+                ErrorHandler.showError('Servizio temporaneamente non disponibile');
+            } else {
+                ErrorHandler.showError('Errore nell\'aggiunta della transazione');
+            }
         } finally {
             this.showLoading(false);
         }
@@ -567,8 +622,19 @@ class LibroNeroManager {
     handleOrientationChange() {
         // Force a small delay to allow for orientation change to complete
         setTimeout(() => {
+            // Update viewport height
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+            
             // Trigger a resize event to recalculate layouts
             window.dispatchEvent(new Event('resize'));
+            
+            // Re-render current view if needed
+            if (this.selectedClientId) {
+                this.loadTransactions(this.selectedClientId);
+            } else {
+                this.loadClients();
+            }
         }, 100);
     }
     
@@ -577,15 +643,45 @@ class LibroNeroManager {
         // Update CSS custom properties for dynamic sizing
         const vh = window.innerHeight * 0.01;
         document.documentElement.style.setProperty('--vh', `${vh}px`);
+        
+        // Update safe area insets
+        this.updateSafeAreaInsets();
+    }
+    
+    updateSafeAreaInsets() {
+        const style = getComputedStyle(document.documentElement);
+        const top = style.getPropertyValue('env(safe-area-inset-top)') || '0px';
+        const right = style.getPropertyValue('env(safe-area-inset-right)') || '0px';
+        const bottom = style.getPropertyValue('env(safe-area-inset-bottom)') || '0px';
+        const left = style.getPropertyValue('env(safe-area-inset-left)') || '0px';
+        
+        document.documentElement.style.setProperty('--safe-area-top', top);
+        document.documentElement.style.setProperty('--safe-area-right', right);
+        document.documentElement.style.setProperty('--safe-area-bottom', bottom);
+        document.documentElement.style.setProperty('--safe-area-left', left);
     }
 
     // Cleanup when leaving page
     destroy() {
+        // Clear auto-save timeout
+        if (this.autoSaveTimeout) {
+            clearTimeout(this.autoSaveTimeout);
+        }
+        
+        // Unsubscribe from listeners
         if (this.clientsUnsubscribe) {
-            this.clientsUnsubscribe();
+            try {
+                this.clientsUnsubscribe();
+            } catch (error) {
+                console.warn('Errore rimozione listener clienti:', error);
+            }
         }
         if (this.transactionsUnsubscribe) {
-            this.transactionsUnsubscribe();
+            try {
+                this.transactionsUnsubscribe();
+            } catch (error) {
+                console.warn('Errore rimozione listener transazioni:', error);
+            }
         }
     }
 }

@@ -4,7 +4,7 @@ import {
   query, where, orderBy, Timestamp 
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { formatDate, getWeekString, getDayName, showToast } from '../shared/utils.js';
-import { safeQuerySelector, safeAddEventListener, validateInput, isMobile } from '../shared/utils.js';
+import { safeQuerySelector, safeAddEventListener, validateInput, isMobile, initMobileUtils } from '../shared/utils.js';
 
 class MagazzinoManager {
   constructor() {
@@ -20,6 +20,9 @@ class MagazzinoManager {
   }
 
   async init() {
+    // Initialize mobile utilities
+    initMobileUtils();
+    
     this.setupDateSelector();
     this.setupEventListeners();
     await this.loadCategories();
@@ -637,11 +640,16 @@ class MagazzinoManager {
     // Validazione parametri
     if (!itemId) {
       console.error('ID item mancante');
+      showToast('Errore: ID item mancante', 'error');
       return;
     }
     
     const item = this.currentChecklist.items.find(i => i.id === itemId);
-    if (!item) return;
+    if (!item) {
+      console.error('Item non trovato:', itemId);
+      showToast('Errore: item non trovato', 'error');
+      return;
+    }
     
     console.log(`Aggiornando quantità per ${itemId}: ${item.qtyPicked} -> ${newQuantity}`);
     
@@ -655,7 +663,13 @@ class MagazzinoManager {
     item.qtyPicked = qtyValidation.value;
     item.prepared = item.qtyPicked >= item.qtyRequested;
     
-    await this.saveChecklist();
+    try {
+      await this.saveChecklist();
+    } catch (error) {
+      console.error('Errore salvataggio checklist:', error);
+      showToast('Errore nel salvataggio', 'error');
+      return;
+    }
     
     // Forza re-render immediato per aggiornare colori
     setTimeout(() => {
@@ -734,10 +748,15 @@ async updateExtraPickedQuantity(extraIndex, newQuantity) {
     // Validazione parametri
     if (extraIndex < 0 || !this.currentChecklist.extras || extraIndex >= this.currentChecklist.extras.length) {
       console.error('Indice extra non valido:', extraIndex);
+      showToast('Errore: indice extra non valido', 'error');
       return;
     }
     
-    if (!this.currentChecklist.extras[extraIndex]) return;
+    if (!this.currentChecklist.extras[extraIndex]) {
+      console.error('Extra non trovato:', extraIndex);
+      showToast('Errore: extra non trovato', 'error');
+      return;
+    }
     
     console.log(`Aggiornando quantità extra ${extraIndex}: ${this.currentChecklist.extras[extraIndex].qtyPicked} -> ${newQuantity}`);
     
@@ -753,7 +772,13 @@ async updateExtraPickedQuantity(extraIndex, newQuantity) {
     extra.qtyPicked = qtyValidation.value;
     extra.prepared = extra.qtyPicked >= extra.qtyRequested;
     
-    await this.saveChecklist();
+    try {
+      await this.saveChecklist();
+    } catch (error) {
+      console.error('Errore salvataggio checklist:', error);
+      showToast('Errore nel salvataggio', 'error');
+      return;
+    }
     
     // Forza re-render immediato per aggiornare colori
     setTimeout(() => {
@@ -765,42 +790,67 @@ async updateExtraPickedQuantity(extraIndex, newQuantity) {
   async toggleItemPrepared(itemId) {
     if (!itemId) {
       console.error('ID item mancante');
+      showToast('Errore: ID item mancante', 'error');
       return;
     }
     
     const item = this.currentChecklist.items.find(i => i.id === itemId);
-    if (!item) return;
+    if (!item) {
+      console.error('Item non trovato:', itemId);
+      showToast('Errore: item non trovato', 'error');
+      return;
+    }
 
     if (item.qtyPicked < item.qtyRequested) {
       item.qtyPicked = item.qtyRequested;
     }
     item.prepared = item.qtyPicked >= item.qtyRequested;
 
-    await this.saveChecklist();
+    try {
+      await this.saveChecklist();
+    } catch (error) {
+      console.error('Errore salvataggio checklist:', error);
+      showToast('Errore nel salvataggio', 'error');
+      return;
+    }
+    
     this.renderChecklist();
   }
   
   async toggleExtraPrepared(extraIndex) {
     if (extraIndex < 0 || !this.currentChecklist.extras || extraIndex >= this.currentChecklist.extras.length) {
       console.error('Indice extra non valido:', extraIndex);
+      showToast('Errore: indice extra non valido', 'error');
       return;
     }
     
     const extra = this.currentChecklist.extras[extraIndex];
-    if (!extra) return;
+    if (!extra) {
+      console.error('Extra non trovato:', extraIndex);
+      showToast('Errore: extra non trovato', 'error');
+      return;
+    }
 
     if (extra.qtyPicked < extra.qtyRequested) {
       extra.qtyPicked = extra.qtyRequested;
     }
     extra.prepared = extra.qtyPicked >= extra.qtyRequested;
 
-    await this.saveChecklist();
+    try {
+      await this.saveChecklist();
+    } catch (error) {
+      console.error('Errore salvataggio checklist:', error);
+      showToast('Errore nel salvataggio', 'error');
+      return;
+    }
+    
     this.renderChecklist();
   }
   
   async markCategoryComplete(categoryId) {
     if (!categoryId) {
       console.error('ID categoria mancante');
+      showToast('Errore: ID categoria mancante', 'error');
       return;
     }
     
@@ -810,6 +860,11 @@ async updateExtraPickedQuantity(extraIndex, newQuantity) {
         const product = this.products.find(p => p.id === item.id);
         return product && product.categoryId === categoryId;
       });
+      
+      if (categoryItems.length === 0) {
+        showToast('Nessun item trovato per questa categoria', 'warning');
+        return;
+      }
       
       // Segna tutti come completati
       categoryItems.forEach(item => {
@@ -829,6 +884,7 @@ async updateExtraPickedQuantity(extraIndex, newQuantity) {
   async markNotificationRead(notificationId) {
     if (!notificationId) {
       console.error('ID notifica mancante');
+      showToast('Errore: ID notifica mancante', 'error');
       return;
     }
     
@@ -845,6 +901,20 @@ async updateExtraPickedQuantity(extraIndex, newQuantity) {
     } catch (error) {
       console.error('Errore nel segnare notifica come letta:', error);
       showToast('Errore nell\'aggiornamento notifica', 'error');
+    }
+  }
+  
+  // Cleanup method
+  destroy() {
+    // Rimuovi listener esistenti se presenti
+    if (this.listenerUnsubscribes) {
+      this.listenerUnsubscribes.forEach(unsubscribe => {
+        try {
+          unsubscribe();
+        } catch (error) {
+          console.warn('Errore rimozione listener:', error);
+        }
+      });
     }
   }
   
@@ -876,6 +946,22 @@ async updateExtraPickedQuantity(extraIndex, newQuantity) {
   }
 
 }
+
+// Handle page unload
+window.addEventListener('beforeunload', () => {
+  if (window.magazzinoManager) {
+    window.magazzinoManager.destroy();
+  }
+});
+
+// Handle orientation changes
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => {
+    if (window.magazzinoManager) {
+      window.magazzinoManager.renderChecklist();
+    }
+  }, 100);
+});
 
 // Inizializza l'applicazione
 window.magazzinoManager = new MagazzinoManager();

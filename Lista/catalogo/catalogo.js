@@ -4,7 +4,7 @@ import {
   query, where, orderBy 
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { showToast, debounce, getContrastColor, generateUniqueId } from '../shared/utils.js';
-import { safeQuerySelector, safeAddEventListener, validateInput } from '../shared/utils.js';
+import { safeQuerySelector, safeAddEventListener, validateInput, initMobileUtils } from '../shared/utils.js';
 
 class CatalogoManager {
   constructor() {
@@ -20,6 +20,9 @@ class CatalogoManager {
   }
 
   async init() {
+    // Initialize mobile utilities
+    initMobileUtils();
+    
     this.setupEventListeners();
     await this.loadCategories();
     await this.loadProducts();
@@ -506,7 +509,10 @@ class CatalogoManager {
   }
 
   async deleteCategory(categoryId) {
-    if (!confirm('Sei sicuro di voler eliminare questa categoria? I prodotti associati potrebbero non funzionare correttamente.')) {
+    // Miglioramento UX per mobile
+    const confirmMessage = 'Sei sicuro di voler eliminare questa categoria?\n\nI prodotti associati potrebbero non funzionare correttamente.';
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
 
@@ -523,7 +529,10 @@ class CatalogoManager {
   }
 
   async deleteProduct(productId) {
-    if (!confirm('Sei sicuro di voler eliminare questo prodotto?')) {
+    // Miglioramento UX per mobile
+    const confirmMessage = 'Sei sicuro di voler eliminare questo prodotto?\n\nL\'azione non può essere annullata.';
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
 
@@ -726,6 +735,18 @@ class CatalogoManager {
   async importData(file) {
     if (!file) return;
 
+    // Validate file type
+    if (!file.name.endsWith('.json')) {
+      showToast('Seleziona un file JSON valido', 'error');
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('File troppo grande (max 5MB)', 'error');
+      return;
+    }
+
     try {
       const text = await file.text();
       const data = JSON.parse(text);
@@ -733,9 +754,18 @@ class CatalogoManager {
       if (!data.categories || !data.products) {
         throw new Error('Formato file non valido');
       }
+      
+      // Validate data structure
+      if (!Array.isArray(data.categories) || !Array.isArray(data.products)) {
+        throw new Error('Struttura dati non valida');
+      }
 
       // Importa categorie
       for (const category of data.categories) {
+        if (!category.id || !category.name || !category.colorHex) {
+          console.warn('Categoria con dati mancanti saltata:', category);
+          continue;
+        }
         await setDoc(doc(db, 'categories', category.id), {
           name: category.name,
           colorHex: category.colorHex
@@ -744,11 +774,15 @@ class CatalogoManager {
 
       // Importa prodotti
       for (const product of data.products) {
+        if (!product.id || !product.name || !product.categoryId) {
+          console.warn('Prodotto con dati mancanti saltato:', product);
+          continue;
+        }
         await setDoc(doc(db, 'products', product.id), {
           name: product.name,
           categoryId: product.categoryId,
-          important: product.important,
-          active: product.active
+          important: product.important || false,
+          active: product.active !== undefined ? product.active : true
         });
       }
 
@@ -759,11 +793,18 @@ class CatalogoManager {
       showToast('Dati importati con successo!', 'success');
     } catch (error) {
       console.error('Errore importazione:', error);
-      showToast('Errore nell\'importazione del file', 'error');
+      if (error.message.includes('JSON')) {
+        showToast('File JSON non valido', 'error');
+      } else {
+        showToast('Errore nell\'importazione del file', 'error');
+      }
     }
 
     // Reset input file
-    document.getElementById('importFile').value = '';
+    const importFile = safeQuerySelector('#importFile');
+    if (importFile) {
+      importFile.value = '';
+    }
   }
 
   showError(message) {
@@ -775,6 +816,9 @@ class CatalogoManager {
     }
     // Fallback con toast se elemento non trovato
     showToast(message, 'error');
+    
+    // Log error for debugging
+    console.error('Catalogo Error:', message);
   }
 
   showSuccess(message) {
@@ -788,6 +832,16 @@ class CatalogoManager {
     showToast(message, 'success');
   }
 }
+
+// Handle orientation changes
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => {
+    if (window.catalogoManager) {
+      window.catalogoManager.renderProducts();
+      window.catalogoManager.renderCategoriesList();
+    }
+  }, 100);
+});
 
 // Inizializza l'applicazione
 window.catalogoManager = new CatalogoManager();
