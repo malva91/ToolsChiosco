@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#6366f1">
+    <title>Libro Nero - Chiosco</title>
+    <link rel="stylesheet" href="style/02_components_1.css">
+    <link rel="stylesheet" href="style/02_components_2.css">
+    <link rel="stylesheet" href="style/03_layout_1.css">
+    <link rel="stylesheet" href="style/03_layout_2.css">
+    <link rel="stylesheet" href="style/07_libro_nero.css">
+    <link rel="stylesheet" href="style/05_mobile_optimization.css">
+</head>
+<body>
+    <button class="mobile-menu-toggle" id="mobile-menu-toggle">☰</button>
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+    
+    <div class="app-container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>🏖️ Chiosco</h2>
+                <p id="user-info">Dipendente</p>
+            </div>
+            
+            <ul class="sidebar-nav">
+                <li><a href="dashboard.html">📊 Dashboard</a></li>
+                <li><a href="calendar.html">📅 Calendario</a></li>
+                <li><a href="libro-nero.html" class="active">📖 Libro Nero</a></li>
+                <li><a href="admin.html" id="admin-link" style="display: none;">⚙️ Admin</a></li>
+                <li><a href="#" id="logout-btn">🚪 Logout</a></li>
+            </ul>
+        </nav>
+        
+        <main class="main-content">
+            <!-- Header semplice -->
+            <div class="simple-header">
+                <h1>📖 Libro Nero</h1>
+                <div class="totals-summary">
+                    <div class="total-item">
+                        <span class="total-label">Clienti:</span>
+                        <span class="total-value" id="total-clients">0</span>
+                    </div>
+                    <div class="total-item">
+                        <span class="total-label">Crediti:</span>
+                        <span class="total-value positive" id="total-credits">€0.00</span>
+                    </div>
+                    <div class="total-item">
+                        <span class="total-label">Debiti:</span>
+                        <span class="total-value negative" id="total-debts">€0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista Clienti -->
+            <div class="clients-section">
+                <div class="section-header">
+                    <h3>Clienti</h3>
+                    <button class="btn-add" id="show-add-client">+</button>
+                </div>
+                
+                <!-- Form aggiungi cliente (nascosto inizialmente) -->
+                <div class="add-client-form" id="add-client-form-container" style="display: none;">
+                    <form id="add-client-form">
+                        <input 
+                            type="text" 
+                            id="client-name" 
+                            placeholder="Nome cliente" 
+                            required
+                            maxlength="50"
+                        >
+                        <div class="form-buttons">
+                            <button type="submit" class="btn-primary">Aggiungi</button>
+                            <button type="button" class="btn-cancel" id="cancel-add-client">Annulla</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="clients-list" id="clients-list">
+                    <div class="loading">Caricamento...</div>
+                </div>
+            </div>
+
+            <!-- Dettagli Cliente (nascosto inizialmente) -->
+            <div class="client-details" id="client-details" style="display: none;">
+                <div class="client-header">
+                    <button class="back-btn" id="back-to-clients">← Indietro</button>
+                    <h2 id="selected-client-name">Cliente</h2>
+                    <div class="client-balance" id="client-balance">€0.00</div>
+                </div>
+
+                <!-- Form Transazione -->
+                <div class="transaction-section">
+                    <h3>Nuova Transazione</h3>
+                    <form id="add-transaction-form">
+                        <div class="amount-buttons">
+                            <button type="button" class="amount-btn negative" data-amount="-5">-5€</button>
+                            <button type="button" class="amount-btn negative" data-amount="-10">-10€</button>
+                            <button type="button" class="amount-btn negative" data-amount="-20">-20€</button>
+                            <button type="button" class="amount-btn positive" data-amount="10">+10€</button>
+                            <button type="button" class="amount-btn positive" data-amount="20">+20€</button>
+                            <button type="button" class="amount-btn positive" data-amount="50">+50€</button>
+                        </div>
+                        
+                        <input 
+                            type="number" 
+                            id="transaction-amount" 
+                            placeholder="Importo personalizzato" 
+                            step="0.01"
+                        >
+                        
+                        <input 
+                            type="text" 
+                            id="transaction-description" 
+                            placeholder="Descrizione (opzionale)"
+                            maxlength="100"
+                        >
+                        
+                        <button type="submit" class="btn-primary btn-large">Registra</button>
+                    </form>
+                </div>
+
+                <!-- Storico Transazioni -->
+                <div class="transactions-section">
+                    <div class="section-header">
+                        <h3>Transazioni</h3>
+                        <button class="btn-danger btn-small" id="clear-all-transactions">Azzera</button>
+                    </div>
+                    
+                    <div class="transactions-list" id="transactions-list">
+                        <div class="loading">Caricamento...</div>
+                    </div>
+                </div>
+
+                <!-- Azioni Cliente -->
+                <div class="client-actions">
+                    <button class="btn-danger" id="delete-client-btn">Elimina Cliente</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Conferma -->
+    <div id="confirm-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3 id="confirm-title">Conferma</h3>
+            <p id="confirm-message">Sei sicuro?</p>
+            <div class="modal-buttons">
+                <button id="confirm-ok-btn" class="btn-danger">Conferma</button>
+                <button class="btn-cancel modal-close">Annulla</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+    </div>
+
+    <script type="module" src="js/libro-nero.js"></script>
+</body>
+</html>
