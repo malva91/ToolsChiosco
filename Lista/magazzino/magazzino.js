@@ -4,6 +4,7 @@ import {
   query, where, orderBy, Timestamp 
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { formatDate, getWeekString, getDayName, showToast } from '../shared/utils.js';
+import { safeQuerySelector, safeAddEventListener, validateInput, isMobile } from '../shared/utils.js';
 
 class MagazzinoManager {
   constructor() {
@@ -28,13 +29,18 @@ class MagazzinoManager {
   }
 
   setupDateSelector() {
-    const dateSelector = document.getElementById('dateSelector');
-    const currentDateEl = document.getElementById('currentDate');
+    const dateSelector = safeQuerySelector('#dateSelector');
+    const currentDateEl = safeQuerySelector('#currentDate');
+    
+    if (!dateSelector || !currentDateEl) {
+      console.error('Elementi date selector non trovati');
+      return;
+    }
     
     dateSelector.value = formatDate(this.selectedDate);
     currentDateEl.textContent = `${getDayName(this.selectedDate)} ${formatDate(this.selectedDate)}`;
     
-    dateSelector.addEventListener('change', (e) => {
+    safeAddEventListener(dateSelector, 'change', (e) => {
       this.selectedDate = new Date(e.target.value);
       currentDateEl.textContent = `${getDayName(this.selectedDate)} ${formatDate(this.selectedDate)}`;
       
@@ -49,9 +55,12 @@ class MagazzinoManager {
   }
 
   setupEventListeners() {
-    document.getElementById('markAllReadBtn').addEventListener('click', () => {
-      this.markAllNotificationsRead();
-    });
+    const markAllReadBtn = safeQuerySelector('#markAllReadBtn');
+    if (markAllReadBtn) {
+      safeAddEventListener(markAllReadBtn, 'click', () => {
+        this.markAllNotificationsRead();
+      });
+    }
   }
 
   async loadCategories() {
@@ -344,9 +353,14 @@ class MagazzinoManager {
   }
 
   renderNotifications() {
-    const panel = document.getElementById('notificationPanel');
-    const badge = document.getElementById('notificationBadge');
-    const list = document.getElementById('notificationList');
+    const panel = safeQuerySelector('#notificationPanel');
+    const badge = safeQuerySelector('#notificationBadge');
+    const list = safeQuerySelector('#notificationList');
+    
+    if (!panel || !badge || !list) {
+      console.warn('Elementi notifiche non trovati');
+      return;
+    }
     
     if (this.notifications.length === 0) {
       panel.classList.add('hidden');
@@ -425,7 +439,7 @@ class MagazzinoManager {
   }
 
   renderChecklist() {
-    const container = document.getElementById('checklistContainer');
+    const container = safeQuerySelector('#checklistContainer');
     
     if (!container) {
       console.error('Container checklistContainer non trovato');
@@ -456,15 +470,18 @@ class MagazzinoManager {
     `;
     
     // Aggiungi event listener per eliminazione
-    document.getElementById('deleteListBtn').addEventListener('click', () => {
-      this.deleteList();
-    });
+    const deleteListBtn = safeQuerySelector('#deleteListBtn');
+    if (deleteListBtn) {
+      safeAddEventListener(deleteListBtn, 'click', () => {
+        this.deleteList();
+      });
+    }
     
     
     // Aggiorna stato/progresso lista
     const st = this.computeCompletion();
-    const statusTextEl = document.getElementById('statusText');
-    const statusBarEl = document.getElementById('statusBar');
+    const statusTextEl = safeQuerySelector('#statusText');
+    const statusBarEl = safeQuerySelector('#statusBar');
     if (statusTextEl && statusBarEl) {
       statusTextEl.textContent = `${st.completed}/${st.total} completati (${st.percent}%)`;
       statusBarEl.style.width = `${st.percent}%`;
@@ -539,6 +556,11 @@ class MagazzinoManager {
   }
 
   createChecklistItemCard(item) {
+    if (!item || !item.product) {
+      console.warn('Item o product mancante per card checklist');
+      return document.createElement('div');
+    }
+    
     const card = document.createElement('div');
     card.className = 'product-card';
     
@@ -573,6 +595,11 @@ class MagazzinoManager {
   }
 
   createExtraItemCard(extra, index) {
+    if (!extra || typeof index !== 'number') {
+      console.warn('Extra o index mancante per card extra');
+      return document.createElement('div');
+    }
+    
     const card = document.createElement('div');
     card.className = 'product-card';
     
@@ -607,6 +634,7 @@ class MagazzinoManager {
   }
 
   async updatePickedQuantity(itemId, newQuantity) {
+    // Validazione parametri
     if (!itemId) {
       console.error('ID item mancante');
       return;
@@ -617,13 +645,14 @@ class MagazzinoManager {
     
     console.log(`Aggiornando quantità per ${itemId}: ${item.qtyPicked} -> ${newQuantity}`);
     
-    // Validazione input
-    if (isNaN(newQuantity) || newQuantity < 0) {
-      console.error('Quantità non valida:', newQuantity);
+    // Validazione input con utility
+    const qtyValidation = validateInput(newQuantity, 'number', { min: 0, max: item.qtyRequested });
+    if (!qtyValidation.valid) {
+      showToast(qtyValidation.error, 'error');
       return;
     }
     
-    item.qtyPicked = Math.max(0, Math.min(newQuantity, item.qtyRequested));
+    item.qtyPicked = qtyValidation.value;
     item.prepared = item.qtyPicked >= item.qtyRequested;
     
     await this.saveChecklist();
@@ -635,8 +664,13 @@ class MagazzinoManager {
     }, 100);
   }
   async deleteList() {
+    // Miglioramento UX per mobile
+    const confirmMessage = isMobile() 
+      ? 'Eliminare la lista di oggi?\n\nL\'azione non può essere annullata.'
+      : 'Sei sicuro di voler eliminare la lista di oggi? L\'azione non può essere annullata.';
+      
     try {
-      const confirmDelete = window.confirm('Sei sicuro di voler eliminare la lista di oggi? L\'azione non può essere annullata.');
+      const confirmDelete = window.confirm(confirmMessage);
       if (!confirmDelete) return;
 
       // Disiscrivi eventuali listener attivi
@@ -667,9 +701,9 @@ class MagazzinoManager {
       this.notifications = [];
       this.unreadCount = 0;
 
-      const container = document.getElementById('checklistContainer');
-      const emptyState = document.getElementById('emptyState');
-      const loading = document.getElementById('loadingList');
+      const container = safeQuerySelector('#checklistContainer');
+      const emptyState = safeQuerySelector('#emptyState');
+      const loading = safeQuerySelector('#loadingList');
       if (container) container.classList.add('hidden');
       if (emptyState) emptyState.classList.remove('hidden');
       if (loading) loading.classList.add('hidden');
@@ -697,6 +731,7 @@ class MagazzinoManager {
   }
 
 async updateExtraPickedQuantity(extraIndex, newQuantity) {
+    // Validazione parametri
     if (extraIndex < 0 || !this.currentChecklist.extras || extraIndex >= this.currentChecklist.extras.length) {
       console.error('Indice extra non valido:', extraIndex);
       return;
@@ -706,14 +741,16 @@ async updateExtraPickedQuantity(extraIndex, newQuantity) {
     
     console.log(`Aggiornando quantità extra ${extraIndex}: ${this.currentChecklist.extras[extraIndex].qtyPicked} -> ${newQuantity}`);
     
-    // Validazione input
-    if (isNaN(newQuantity) || newQuantity < 0) {
-      console.error('Quantità non valida:', newQuantity);
+    const extra = this.currentChecklist.extras[extraIndex];
+    
+    // Validazione input con utility
+    const qtyValidation = validateInput(newQuantity, 'number', { min: 0, max: extra.qtyRequested });
+    if (!qtyValidation.valid) {
+      showToast(qtyValidation.error, 'error');
       return;
     }
     
-    const extra = this.currentChecklist.extras[extraIndex];
-    extra.qtyPicked = Math.max(0, Math.min(newQuantity, extra.qtyRequested));
+    extra.qtyPicked = qtyValidation.value;
     extra.prepared = extra.qtyPicked >= extra.qtyRequested;
     
     await this.saveChecklist();

@@ -4,6 +4,7 @@ import {
   query, where, orderBy 
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { showToast, debounce, getContrastColor, generateUniqueId } from '../shared/utils.js';
+import { safeQuerySelector, safeAddEventListener, validateInput } from '../shared/utils.js';
 
 class CatalogoManager {
   constructor() {
@@ -28,46 +29,72 @@ class CatalogoManager {
 
   setupEventListeners() {
     // Category events
-    document.getElementById('addCategoryBtn').addEventListener('click', () => {
+    const addCategoryBtn = safeQuerySelector('#addCategoryBtn');
+    if (addCategoryBtn) {
+      safeAddEventListener(addCategoryBtn, 'click', () => {
       this.addCategory();
-    });
+      });
+    }
 
-    document.getElementById('updateCategoryBtn').addEventListener('click', () => {
+    const updateCategoryBtn = safeQuerySelector('#updateCategoryBtn');
+    if (updateCategoryBtn) {
+      safeAddEventListener(updateCategoryBtn, 'click', () => {
       this.updateCategory();
-    });
+      });
+    }
 
-    document.getElementById('cancelCategoryBtn').addEventListener('click', () => {
+    const cancelCategoryBtn = safeQuerySelector('#cancelCategoryBtn');
+    if (cancelCategoryBtn) {
+      safeAddEventListener(cancelCategoryBtn, 'click', () => {
       this.cancelCategoryEdit();
-    });
+      });
+    }
 
     // Product events
-    document.getElementById('addProductBtn').addEventListener('click', () => {
+    const addProductBtn = safeQuerySelector('#addProductBtn');
+    if (addProductBtn) {
+      safeAddEventListener(addProductBtn, 'click', () => {
       this.addProduct();
-    });
+      });
+    }
 
-    document.getElementById('updateProductBtn').addEventListener('click', () => {
+    const updateProductBtn = safeQuerySelector('#updateProductBtn');
+    if (updateProductBtn) {
+      safeAddEventListener(updateProductBtn, 'click', () => {
       this.updateProduct();
-    });
+      });
+    }
 
-    document.getElementById('cancelProductBtn').addEventListener('click', () => {
+    const cancelProductBtn = safeQuerySelector('#cancelProductBtn');
+    if (cancelProductBtn) {
+      safeAddEventListener(cancelProductBtn, 'click', () => {
       this.cancelProductEdit();
-    });
+      });
+    }
 
     // Search and filter
-    const searchInput = document.getElementById('searchInput');
-    searchInput.addEventListener('input', debounce((e) => {
+    const searchInput = safeQuerySelector('#searchInput');
+    if (searchInput) {
+      safeAddEventListener(searchInput, 'input', debounce((e) => {
       this.searchTerm = e.target.value.toLowerCase();
       this.filterProducts();
-    }, 300));
+      }, 300));
+    }
 
     // Import/Export
-    document.getElementById('exportBtn').addEventListener('click', () => {
+    const exportBtn = safeQuerySelector('#exportBtn');
+    if (exportBtn) {
+      safeAddEventListener(exportBtn, 'click', () => {
       this.exportData();
-    });
+      });
+    }
 
-    document.getElementById('importFile').addEventListener('change', (e) => {
+    const importFile = safeQuerySelector('#importFile');
+    if (importFile) {
+      safeAddEventListener(importFile, 'change', (e) => {
       this.importData(e.target.files[0]);
-    });
+      });
+    }
   }
 
   async loadCategories() {
@@ -126,7 +153,7 @@ class CatalogoManager {
   }
 
   renderCategoriesList() {
-    const container = document.getElementById('categoriesList');
+    const container = safeQuerySelector('#categoriesList');
     if (!container) {
       console.error('Container categoriesList non trovato');
       return;
@@ -173,7 +200,7 @@ class CatalogoManager {
   }
 
   renderProductCategorySelect() {
-    const select = document.getElementById('productCategory');
+    const select = safeQuerySelector('#productCategory');
     if (!select) {
       console.error('Select productCategory non trovato');
       return;
@@ -195,7 +222,7 @@ class CatalogoManager {
   }
 
   renderCategoryFilters() {
-    const container = document.getElementById('categoryFilters');
+    const container = safeQuerySelector('#categoryFilters');
     if (!container) {
       console.error('Container categoryFilters non trovato');
       return;
@@ -262,7 +289,7 @@ class CatalogoManager {
   }
 
   renderProducts() {
-    const container = document.getElementById('productsList');
+    const container = safeQuerySelector('#productsList');
     if (!container) {
       console.error('Container productsList non trovato');
       return;
@@ -374,18 +401,32 @@ class CatalogoManager {
   }
 
   async addCategory() {
-    const name = document.getElementById('categoryName').value.trim();
-    const colorHex = document.getElementById('categoryColor').value;
+    const nameInput = safeQuerySelector('#categoryName');
+    const colorInput = safeQuerySelector('#categoryColor');
+    
+    if (!nameInput || !colorInput) {
+      showToast('Elementi form categoria non trovati', 'error');
+      return;
+    }
 
-    if (!name || name.length < 2) {
-      showToast('Inserisci il nome della categoria', 'error');
+    // Validazione con utility
+    const nameValidation = validateInput(nameInput.value, 'text', { min: 2, max: 50, required: true });
+    if (!nameValidation.valid) {
+      showToast(nameValidation.error, 'error');
       return;
     }
     
-    if (!colorHex || !/^#[0-9A-F]{6}$/i.test(colorHex)) {
+    const colorValidation = validateInput(colorInput.value, 'text', { 
+      required: true, 
+      pattern: /^#[0-9A-F]{6}$/i 
+    });
+    if (!colorValidation.valid) {
       showToast('Seleziona un colore valido', 'error');
       return;
     }
+
+    const name = nameValidation.value;
+    const colorHex = colorValidation.value;
 
     try {
       // Genera ID leggibile
@@ -396,8 +437,8 @@ class CatalogoManager {
         colorHex
       });
 
-      document.getElementById('categoryName').value = '';
-      document.getElementById('categoryColor').value = '#3b82f6';
+      nameInput.value = '';
+      colorInput.value = '#3b82f6';
       
       await this.loadCategories();
       this.renderCategoryFilters();
@@ -497,20 +538,32 @@ class CatalogoManager {
   }
 
   async addProduct() {
-    const name = document.getElementById('productName').value.trim();
-    const categoryId = document.getElementById('productCategory').value;
-    const important = document.getElementById('productImportant').checked;
-    const active = document.getElementById('productActive').checked;
+    const nameInput = safeQuerySelector('#productName');
+    const categorySelect = safeQuerySelector('#productCategory');
+    const importantInput = safeQuerySelector('#productImportant');
+    const activeInput = safeQuerySelector('#productActive');
+    
+    if (!nameInput || !categorySelect || !importantInput || !activeInput) {
+      showToast('Elementi form prodotto non trovati', 'error');
+      return;
+    }
 
-    if (!name || name.length < 2) {
-      showToast('Inserisci un nome prodotto valido (almeno 2 caratteri)', 'error');
+    // Validazione con utility
+    const nameValidation = validateInput(nameInput.value, 'text', { min: 2, max: 100, required: true });
+    if (!nameValidation.valid) {
+      showToast(nameValidation.error, 'error');
       return;
     }
     
-    if (!categoryId) {
-      showToast('Inserisci nome prodotto e seleziona categoria', 'error');
+    if (!categorySelect.value) {
+      showToast('Seleziona una categoria', 'error');
       return;
     }
+    
+    const name = nameValidation.value;
+    const categoryId = categorySelect.value;
+    const important = importantInput.checked;
+    const active = activeInput.checked;
     
     // Verifica che la categoria esista
     const categoryExists = this.categories.find(c => c.id === categoryId);
@@ -606,10 +659,15 @@ class CatalogoManager {
   }
 
   clearProductForm() {
-    document.getElementById('productName').value = '';
-    document.getElementById('productCategory').value = '';
-    document.getElementById('productImportant').checked = false;
-    document.getElementById('productActive').checked = true;
+    const nameInput = safeQuerySelector('#productName');
+    const categorySelect = safeQuerySelector('#productCategory');
+    const importantInput = safeQuerySelector('#productImportant');
+    const activeInput = safeQuerySelector('#productActive');
+    
+    if (nameInput) nameInput.value = '';
+    if (categorySelect) categorySelect.value = '';
+    if (importantInput) importantInput.checked = false;
+    if (activeInput) activeInput.checked = true;
   }
 
   async toggleProductActive(productId) {
@@ -709,17 +767,25 @@ class CatalogoManager {
   }
 
   showError(message) {
-    const errorEl = document.getElementById('errorMessage');
-    errorEl.textContent = message;
-    errorEl.classList.remove('hidden');
-    setTimeout(() => errorEl.classList.add('hidden'), 5000);
+    const errorEl = safeQuerySelector('#errorMessage');
+    if (errorEl) {
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+      setTimeout(() => errorEl.classList.add('hidden'), 5000);
+    }
+    // Fallback con toast se elemento non trovato
+    showToast(message, 'error');
   }
 
   showSuccess(message) {
-    const successEl = document.getElementById('successMessage');
-    successEl.textContent = message;
-    successEl.classList.remove('hidden');
-    setTimeout(() => successEl.classList.add('hidden'), 3000);
+    const successEl = safeQuerySelector('#successMessage');
+    if (successEl) {
+      successEl.textContent = message;
+      successEl.classList.remove('hidden');
+      setTimeout(() => successEl.classList.add('hidden'), 3000);
+    }
+    // Fallback con toast se elemento non trovato
+    showToast(message, 'success');
   }
 }
 
