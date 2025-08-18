@@ -19,6 +19,12 @@ export class ErrorHandler {
         // Remove existing alerts
         const existingAlerts = container.querySelectorAll('.custom-alert');
         existingAlerts.forEach(alert => alert.remove());
+        
+        // Validate message
+        if (!message || typeof message !== 'string') {
+            console.warn('Invalid alert message:', message);
+            return;
+        }
 
         const alertDiv = document.createElement('div');
         alertDiv.className = `custom-alert alert-${type}`;
@@ -37,24 +43,43 @@ export class ErrorHandler {
             info: 'Informazione'
         };
         
+        // Sanitize message to prevent XSS
+        const sanitizedMessage = this.sanitizeMessage(message);
+        
         alertDiv.innerHTML = `
             <div class="alert-content">
                 <div class="alert-header">
                     <span class="alert-icon">${icons[type]}</span>
                     <h3 class="alert-title">${titles[type]}</h3>
                 </div>
-                <div class="alert-message">${this.sanitizeMessage(message)}</div>
+                <div class="alert-message">${sanitizedMessage}</div>
                 <div class="alert-actions">
                     <button class="btn btn-primary alert-ok-btn">OK</button>
                 </div>
             </div>
         `;
         
+        // Add mobile-specific styling
+        if (window.innerWidth <= 480) {
+            alertDiv.style.cssText += `
+                position: fixed;
+                top: calc(10px + var(--safe-area-top, 0px));
+                left: calc(10px + var(--safe-area-left, 0px));
+                right: calc(10px + var(--safe-area-right, 0px));
+                margin: 0;
+                max-width: none;
+                border-radius: 12px;
+                animation: slideDown 0.3s ease;
+            `;
+        }
+        
         container.appendChild(alertDiv);
         
         const okBtn = alertDiv.querySelector('.alert-ok-btn');
         okBtn.addEventListener('click', () => {
-            container.removeChild(alertDiv);
+            if (container.contains(alertDiv)) {
+                container.removeChild(alertDiv);
+            }
             // Re-enable body scroll
             document.body.style.overflow = '';
         });
@@ -166,7 +191,8 @@ export class ErrorHandler {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#x27;')
-            .replace(/\//g, '&#x2F;');
+            .replace(/\//g, '&#x2F;')
+            .substring(0, 500); // Limit message length
     }
 
     static logError(error, context = '') {
@@ -175,7 +201,12 @@ export class ErrorHandler {
             timestamp,
             context,
             message: error.message || error,
-            stack: error.stack || 'No stack trace available'
+            stack: error.stack || 'No stack trace available',
+            userAgent: navigator.userAgent,
+            viewport: {
+                width: window.innerWidth,
+                height: window.innerHeight
+            }
         };
         
         console.error('Application Error:', errorInfo);
@@ -183,4 +214,22 @@ export class ErrorHandler {
         // In production, you might want to send this to a logging service
         // this.sendToLoggingService(errorInfo);
     }
+    
+    static handleGlobalError() {
+        // Global error handler for unhandled errors
+        window.addEventListener('error', (event) => {
+            this.logError(event.error, 'Global Error');
+            this.showError('Si è verificato un errore imprevisto');
+        });
+        
+        // Handle unhandled promise rejections
+        window.addEventListener('unhandledrejection', (event) => {
+            this.logError(event.reason, 'Unhandled Promise Rejection');
+            this.showError('Si è verificato un errore di connessione');
+            event.preventDefault();
+        });
+    }
 }
+
+// Initialize global error handling
+ErrorHandler.handleGlobalError();

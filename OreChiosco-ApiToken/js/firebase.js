@@ -304,6 +304,15 @@ class FirebaseAPI {
     // Authentication helper
     async validateCredentials(username, password) {
         try {
+            // Validate input parameters
+            if (!username || !password) {
+                throw new Error('Username e password sono obbligatori');
+            }
+            
+            if (typeof username !== 'string' || typeof password !== 'string') {
+                throw new Error('Credenziali non valide');
+            }
+            
             // Check credentials against database
             const employee = await this.getEmployee(username);
             if (employee && employee.password === password) {
@@ -314,6 +323,37 @@ class FirebaseAPI {
         } catch (error) {
             console.error('Error validating credentials:', error);
             throw error;
+        }
+    }
+    
+    // Connection health check
+    async checkConnection() {
+        try {
+            // Try to read a small document to test connection
+            const testRef = doc(this.db, 'system', 'health');
+            await getDoc(testRef);
+            return true;
+        } catch (error) {
+            console.error('Connection check failed:', error);
+            return false;
+        }
+    }
+    
+    // Retry mechanism for failed operations
+    async retryOperation(operation, maxRetries = 3, delay = 1000) {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                return await operation();
+            } catch (error) {
+                console.warn(`Operation failed (attempt ${attempt}/${maxRetries}):`, error);
+                
+                if (attempt === maxRetries) {
+                    throw error;
+                }
+                
+                // Wait before retrying
+                await new Promise(resolve => setTimeout(resolve, delay * attempt));
+            }
         }
     }
 }
