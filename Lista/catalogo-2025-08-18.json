@@ -1,0 +1,35 @@
+{
+  "categories": [
+    {
+      "id": "EZVSAUZQqEIUbyPOYJUA",
+      "name": "Bibite"
+    },
+    {
+      "id": "5Ly4TLAcTDaslfJAmmHg",
+      "name": "Freschi"
+    }
+  ],
+  "products": [
+    {
+      "id": "pYFMb9mtqdDjgwN0m6TE",
+      "name": "CocaCola",
+      "categoryId": "EZVSAUZQqEIUbyPOYJUA",
+      "important": false,
+      "active": true
+    },
+    {
+      "id": "sS1jysQs34fmNLTstvqV",
+      "name": "Fanta",
+      "categoryId": "EZVSAUZQqEIUbyPOYJUA",
+      "important": false,
+      "active": true
+    },
+    {
+      "id": "uzL9Lfs1SuvpaHcF5OOC",
+      "name": "Filone",
+      "categoryId": "5Ly4TLAcTDaslfJAmmHg",
+      "important": false,
+      "active": true
+    }
+  ]
+}
