@@ -187,11 +187,11 @@ class CatalogoManager {
           </div>
           <div class="category-item-actions">
             <button class="btn-icon btn-edit" title="Modifica categoria"
-                    onclick="window.catalogoManager.editCategory('${categoryId}')">
+                    onclick="window.catalogoManager.editCategory('${category.id}')">
               <span>✏️</span>
             </button>
             <button class="btn-icon btn-delete" title="Elimina categoria"
-                    onclick="window.catalogoManager.deleteCategory('${categoryId}')">
+                    onclick="window.catalogoManager.deleteCategory('${category.id}')">
               <span>🗑️</span>
             </button>
           </div>
