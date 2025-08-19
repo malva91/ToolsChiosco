@@ -253,10 +253,12 @@ class ListaManager {
       }
 
       const categorySection = document.createElement('div');
-      categorySection.className = 'category-section';
-      categorySection.style.background = `linear-gradient(135deg, ${category.colorHex}08 0%, var(--bg-secondary) 100%)`;
+      categorySection.className = 'mb-4';
+      categorySection.style.background = `linear-gradient(135deg, ${category.colorHex}10 0%, transparent 100%)`;
+      categorySection.style.border = `1px solid ${category.colorHex}30`;
+      categorySection.style.borderRadius = '8px';
+      categorySection.style.padding = '0.75rem';
       categorySection.style.borderLeft = `4px solid ${category.colorHex}`;
-      categorySection.style.borderColor = `${category.colorHex}20`;
       
       const categoryHeader = document.createElement('h3');
       categoryHeader.style.color = category.colorHex;
@@ -278,7 +280,7 @@ class ListaManager {
     const quantity = existingItem ? existingItem.quantity : 0;
 
     const card = document.createElement('div');
-    card.className = 'product-card';
+    card.className = `product-card ${quantity > 0 ? 'has-quantity' : ''}`;
     
     card.innerHTML = `
       <div class="product-header">
