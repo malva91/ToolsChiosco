@@ -309,7 +309,7 @@ class ListaManager {
         </div>
       </div>
       <div class="quantity-controls">
-        <button class="qty-btn" onclick="window.listaManager.updateQuantity('${product.id}', ${quantity - 1})" ${quantity <= 0 ? 'disabled' : ''}>-</button>
+        <button class="qty-btn" onclick="window.listaManager.updateQuantity('${product.id}', ${quantity - 1})">-</button>
         <input type="number" class="qty-input" value="${quantity}" min="0" 
                onchange="window.listaManager.updateQuantity('${product.id}', parseInt(this.value) || 0)">
         <button class="qty-btn" onclick="window.listaManager.updateQuantity('${product.id}', ${quantity + 1})">+</button>
@@ -337,7 +337,7 @@ class ListaManager {
     
     const existingIndex = this.currentList.items.findIndex(item => item.id === productId);
     
-    if (newQuantity === 0 && existingIndex !== -1) {
+    if (newQuantity <= 0 && existingIndex !== -1) {
       this.currentList.items.splice(existingIndex, 1);
     } else if (newQuantity > 0) {
       if (existingIndex !== -1) {
@@ -456,10 +456,19 @@ class ListaManager {
         
         if (missingImportant.length > 0) {
           const missingNames = missingImportant.map(p => p.name).join(', ');
-          document.getElementById('validationMessage').textContent = 
-            `Attenzione: mancano i seguenti prodotti importanti: ${missingNames}`;
-          document.getElementById('validationMessage').classList.remove('hidden');
-          return;
+          
+          // Mostra popup di conferma
+          const confirmMessage = `Non hai segnato i seguenti prodotti importanti:\n\n${missingNames}\n\nVuoi continuare comunque?`;
+          
+          if (!confirm(confirmMessage)) {
+            document.getElementById('validationMessage').textContent = 
+              `Attenzione: mancano i seguenti prodotti importanti: ${missingNames}`;
+            document.getElementById('validationMessage').classList.remove('hidden');
+            return;
+          }
+          
+          // Se l'utente conferma, continua con l'invio
+          document.getElementById('validationMessage').classList.add('hidden');
         }
         
         this.currentList.status.submittedAt = Timestamp.now();
