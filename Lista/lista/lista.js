@@ -253,12 +253,10 @@ class ListaManager {
       }
 
       const categorySection = document.createElement('div');
-      categorySection.className = 'mb-4';
-      categorySection.style.background = `linear-gradient(135deg, ${category.colorHex}10 0%, transparent 100%)`;
-      categorySection.style.border = `1px solid ${category.colorHex}30`;
-      categorySection.style.borderRadius = '8px';
-      categorySection.style.padding = '0.75rem';
+      categorySection.className = 'category-section';
+      categorySection.style.background = `linear-gradient(135deg, ${category.colorHex}08 0%, var(--bg-secondary) 100%)`;
       categorySection.style.borderLeft = `4px solid ${category.colorHex}`;
+      categorySection.style.borderColor = `${category.colorHex}20`;
       
       const categoryHeader = document.createElement('h3');
       categoryHeader.style.color = category.colorHex;
