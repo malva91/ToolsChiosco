@@ -253,24 +253,38 @@ class ListaManager {
       }
 
       const categorySection = document.createElement('div');
-      categorySection.className = 'mb-4';
+      categorySection.className = 'category-section compact';
       categorySection.style.background = `linear-gradient(135deg, ${category.colorHex}10 0%, transparent 100%)`;
       categorySection.style.border = `1px solid ${category.colorHex}30`;
-      categorySection.style.borderRadius = '8px';
-      categorySection.style.padding = '0.75rem';
+      categorySection.style.borderRadius = '12px';
+      categorySection.style.padding = '0.5rem';
       categorySection.style.borderLeft = `4px solid ${category.colorHex}`;
       
       const categoryHeader = document.createElement('h3');
+      categoryHeader.className = 'category-header-compact';
       categoryHeader.style.color = category.colorHex;
-      categoryHeader.textContent = `📂 ${category.name}`;
-      categoryHeader.className = 'mb-2';
+      categoryHeader.style.margin = '0 0 0.5rem 0';
+      categoryHeader.style.fontSize = '0.95rem';
+      categoryHeader.style.fontWeight = '600';
+      categoryHeader.style.display = 'flex';
+      categoryHeader.style.alignItems = 'center';
+      categoryHeader.style.gap = '0.5rem';
+      categoryHeader.innerHTML = `
+        <span>📂</span>
+        <span>${category.name}</span>
+        <span style="margin-left: auto; font-size: 0.7rem; opacity: 0.8;">${products.length}</span>
+      `;
       categorySection.appendChild(categoryHeader);
+
+      const productsGrid = document.createElement('div');
+      productsGrid.className = 'products-grid';
 
       products.forEach(product => {
         const productCard = this.createProductCard(product, category);
-        categorySection.appendChild(productCard);
+        productsGrid.appendChild(productCard);
       });
 
+      categorySection.appendChild(productsGrid);
       container.appendChild(categorySection);
     });
   }

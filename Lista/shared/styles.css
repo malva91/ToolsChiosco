@@ -1402,6 +1402,72 @@ body {
   }
 }
 
+/* Stili specifici per la lista dipendenti compatta */
+.category-header-compact {
+  padding-bottom: var(--spacing-xs);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: var(--spacing-sm) !important;
+}
+
+/* Miglioramenti per la visualizzazione delle categorie nella lista */
+.category-section.compact .category-header-compact span:last-child {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.65rem;
+  font-weight: 500;
+}
+
+/* Ottimizzazioni per schermi molto piccoli nella lista dipendenti */
+@media (max-width: 360px) {
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+  }
+  
+  .product-card {
+    min-height: 85px;
+    padding: 6px;
+  }
+  
+  .product-name {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    -webkit-line-clamp: 1;
+  }
+  
+  .product-category {
+    font-size: 0.6rem;
+    padding: 1px 4px;
+    max-width: 60px;
+  }
+  
+  .qty-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
+  }
+  
+  .qty-input {
+    width: 40px;
+    min-height: 28px;
+    font-size: 14px;
+  }
+  
+  .quantity-controls {
+    gap: 4px;
+  }
+  
+  .category-header-compact {
+    font-size: 0.85rem !important;
+  }
+  
+  .category-header-compact span:last-child {
+    font-size: 0.6rem;
+    padding: 1px 4px;
+  }
+}
+
 /* Accessibility improvements */
 @media (prefers-reduced-motion: reduce) {
   * {
